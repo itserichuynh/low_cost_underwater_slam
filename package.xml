@@ -21,6 +21,7 @@
   <depend>ping360_sonar_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>waterlinked_a50</depend>
+  <depend>px4_msgs</depend>
 
   <exec_depend>ros2launch</exec_depend>
 
