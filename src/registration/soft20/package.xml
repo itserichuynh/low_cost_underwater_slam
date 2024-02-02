@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>soft20</name>
+  <description>basic utility</description>
+
+  <version>0.0.11</version>
+  <license>BSD</license>
+  <author>Tim Hansen</author>
+  <maintainer email="thansen@constructor.university">Tim Hansen</maintainer>
+
+
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <!--  <buildtool_depend>ament_cmake_python</buildtool_depend>-->
+
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+
+</package>
