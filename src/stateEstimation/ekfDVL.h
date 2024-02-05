@@ -53,21 +53,20 @@ public:
         this->measurementImuVelocity(11, 11) = 0.1;//vy
 
         //not used
-        this->measurementNoiseSlam = Eigen::MatrixXd::Identity(12, 12);
-        this->measurementNoiseSlam(0, 0) = 1.0;//x
-        this->measurementNoiseSlam(1, 1) = 1.0;//y
-        this->measurementNoiseSlam(8, 8) = 1.0;//yaw
+//        this->measurementNoiseSlam = Eigen::MatrixXd::Identity(12, 12);
+//        this->measurementNoiseSlam(0, 0) = 1.0;//x
+//        this->measurementNoiseSlam(1, 1) = 1.0;//y
+//        this->measurementNoiseSlam(8, 8) = 1.0;//yaw
 
         this->stateOfEKF.covariance = processNoise;
 
         this->recentPoses.push_back(stateOfEKF);
-        //this->lastPositionDifferences.clear();
     }
 
     void
     predictionImu(double xAccel, double yAccel, double zAccel, Eigen::Quaterniond currentRotation,Eigen::Vector3d positionIMU, rclcpp::Time timeStamp);
 
-    void simplePrediction(rclcpp::Time timeStamp);
+//    void simplePrediction(rclcpp::Time timeStamp);
 
     void updateDVL(double xVel, double yVel, double zVel, Eigen::Quaterniond rotationOfDVL,Eigen::Vector3d positionDVL, rclcpp::Time timeStamp);
 
@@ -82,20 +81,20 @@ public:
 
     Eigen::Quaterniond getRotationVectorWithoutYaw();
 
-    void resetToPos(double x, double y, double yaw, bool resetCovariance);
+//    void resetToPos(double x, double y, double yaw, bool resetCovariance);
 
     Eigen::VectorXd innovationStateDiff(Eigen::VectorXd z, Eigen::MatrixXd H, Eigen::VectorXd currentStateBeforeUpdate);
 
-    void updateHeading(double yawRotation, rclcpp::Time timeStamp);
+//    void updateHeading(double yawRotation, rclcpp::Time timeStamp);
 
-    void setProcessNoise(double xNoise, double yNoise, double zNoise, double vxNoise, double vyNoise, double vzNoise,
-                         double rNoise, double pNoise, double yawNoise, double vrNoise, double vpNoise, double vyawNoise);
+//    void setProcessNoise(double xNoise, double yNoise, double zNoise, double vxNoise, double vyNoise, double vzNoise,
+//                         double rNoise, double pNoise, double yawNoise, double vrNoise, double vpNoise, double vyawNoise);
 
-    void setMeasurementNoiseDVL(double vxNoise, double vyNoise, double vzNoise);
+//    void setMeasurementNoiseDVL(double vxNoise, double vyNoise, double vzNoise);
 
-    void setMeasurementNoiseDepth(double zNoise);
+//    void setMeasurementNoiseDepth(double zNoise);
 
-    void setMeasurementNoiseIMUVel(double rNoise, double pNoise,double vrNoise, double vpNoise, double vyNoise);
+//    void setMeasurementNoiseIMUVel(double rNoise, double pNoise,double vrNoise, double vpNoise, double vyNoise);
 
 private:
     pose stateOfEKF;

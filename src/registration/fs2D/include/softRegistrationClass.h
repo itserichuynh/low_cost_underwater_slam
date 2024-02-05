@@ -5,16 +5,12 @@
 #ifndef FS2D_softRegistrationClass_H
 #define FS2D_softRegistrationClass_H
 
-//#include "softRegistrationClass.h"
 #include "softCorrelationClass.h"
 #include "PeakFinder.h"
 #include "generalHelpfulTools.h"
-//#include "slamToolsRos.h"
 
-//#include <pcl/io/pcd_io.h>
-//#include <pcl/io/ply_io.h>
-//#include <pcl/common/transforms.h>
-//#include <opencv4/opencv2/core.hpp>
+
+
 #include <opencv4/opencv2/imgproc.hpp>
 #include <opencv4/opencv2/highgui.hpp>
 #include <opencv4/opencv2/core.hpp>
@@ -43,11 +39,6 @@ struct translationPeakfs2D {
     Eigen::Matrix2d covariance;
 };
 
-//struct transformationPeakfs2D {
-//    std::vector<translationPeakfs2D> potentialTranslations;
-//    rotationPeakfs2D potentialRotation;
-//};
-
 class softRegistrationClass {
 public:
     softRegistrationClass(int N, int bwOut, int bwIn, int degLim) : sofftCorrelationObject(N, bwOut, bwIn,
@@ -59,10 +50,8 @@ public:
         this->degLim = degLim;
         this->resultingCorrelationDouble = (double *) malloc(sizeof(double) * this->correlationN * this->correlationN);
         this->resultingCorrelationComplex = fftw_alloc_complex(8 * bwOut * bwOut * bwOut);
-//        this->resultingPhaseDiff2D = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * N * N);
         this->resultingPhaseDiff2DCorrelation = (fftw_complex *) fftw_malloc(
                 sizeof(fftw_complex) * this->correlationN * this->correlationN);
-//        this->resultingShiftPeaks2D = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * N * N);
         this->resultingShiftPeaks2DCorrelation = (fftw_complex *) fftw_malloc(
                 sizeof(fftw_complex) * this->correlationN * this->correlationN);
 
@@ -131,16 +120,6 @@ public:
                                                      bool useGauss,
                                                      double potentialNecessaryForPeak = 0.1);
 
-//    std::vector<transformationPeakfs2D> registrationOfTwoVoxelsSOFFTAllSoluations(double voxelData1Input[],
-//                                                                                  double voxelData2Input[],
-//                                                                                  double cellSize,
-//                                                                                  bool useGauss,
-//                                                                                  bool debug = false,
-//                                                                                  double potentialNecessaryForPeak = 0.1,
-//                                                                                  bool multipleRadii = false,
-//                                                                                  bool useClahe = true,
-//                                                                                  bool useHamming = true);
-
     double getSpectrumFromVoxelData2DCorrelation(double voxelData[], double magnitude[], double phase[],
                                                  bool gaussianBlur, double normalizationFactor);
 
@@ -151,30 +130,18 @@ public:
                                                                                              int numberOfRotationForDebug = 0,
                                                                                              double potentialNecessaryForPeak = 0.1);
 
-//    std::vector<translationPeakfs2D>
-//    peakDetectionOf2DCorrelationSimpleDouble1D(double maximumCorrelation, double cellSize, int impactOfNoiseFactor = 2,
-//                                               double percentageOfMaxCorrelationIgnored = 0.10);
-//
-//    std::vector<translationPeakfs2D>
-//    peakDetectionOf2DCorrelationOpenCVHoughTransform(double maximumCorrelation, double cellSize,
-//                                                     int impactOfNoiseFactor = 2,
-//                                                     double percentageOfMaxCorrelationIgnored = 0.10);
-
     bool isPeak(cv::Mat mx[], std::vector<cv::Point> &conn_points);
 
-//    cv::Mat imregionalmax(cv::Mat &src);
 
     double normalizationFactorCalculation(int x, int y);
 
-//    cv::Mat opencv_imextendedmax(cv::Mat &inputMatrix, double hParam);
 
-    void imextendedmax_imreconstruct(cv::Mat g, cv::Mat f, cv::Mat &dest);
+//    void imextendedmax_imreconstruct(cv::Mat g, cv::Mat f, cv::Mat &dest);
 
     std::vector<translationPeakfs2D>
     peakDetectionOf2DCorrelationFindPeaksLibrary(double cellSize, double potentialNecessaryForPeak = 0.1,
                                                  double ignoreSidesPercentage = 0.05);
 
-//    int getSizeOfRegistration();
 
 
 private://here everything is created. malloc is done in the constructor
@@ -204,17 +171,14 @@ private://here everything is created. malloc is done in the constructor
     double *resampledMagnitudeSO3_2TMP;
     softCorrelationClass sofftCorrelationObject;
     fftw_complex *resultingCorrelationComplex;
-//    fftw_complex *resultingPhaseDiff2D;
     fftw_complex *resultingPhaseDiff2DCorrelation;
-//    fftw_complex *resultingShiftPeaks2D;
     fftw_complex *resultingShiftPeaks2DCorrelation;
     double *resultingCorrelationDouble;
     fftw_complex *inputSpacialData;
     fftw_complex *inputSpacialDataCorrelation;
-//    fftw_plan planVoxelToFourier3D;
     fftw_plan planVoxelToFourier2D;
     fftw_plan planVoxelToFourier2DCorrelation;
-//    fftw_plan planFourierToVoxel2D;
+
     fftw_plan planFourierToVoxel2DCorrelation;
 };
 

@@ -8,37 +8,6 @@ bool compareTwoAngleCorrelation(rotationPeakfs2D i1, rotationPeakfs2D i2) {
     return (i1.angle < i2.angle);
 }
 
-//std::vector<double> linspace(double start_in, double end_in, int num_in) {
-//    if (num_in < 0) {
-//        std::cout << "number of linspace negative" << std::endl;
-//        exit(-1);
-//    }
-//    std::vector<double> linspaced;
-//
-//    double start = start_in;
-//    double end = end_in;
-//    auto num = (double) num_in;
-//
-//    if (num == 0) { return linspaced; }
-//    if (num == 1) {
-//        linspaced.push_back(start);
-//        return linspaced;
-//    }
-//
-//    double delta = (end - start) / (num - 1);//stepSize
-//
-//    for (int i = 0; i < num - 1; ++i) {
-//        linspaced.push_back(start + delta * i);
-//    }
-//    linspaced.push_back(end); // I want to ensure that start and end
-//    // are exactly the same as the input
-//    return linspaced;
-//}
-
-//bool compareTwoPeaks(indexPeak i1, indexPeak i2) {
-//    return (i1.height > i2.height);
-//}
-
 double thetaIncrement(double index, int bandwidth) {
     return M_PI * (1 * index + 0) / (2.0 * bandwidth);
 }
@@ -564,7 +533,6 @@ Eigen::Matrix4d softRegistrationClass::registrationOfTwoVoxelsSOFFTFast(double v
     std::vector<translationPeakfs2D> listOfTranslations;
     std::vector<Eigen::Matrix4d> listOfTransformations;
 
-//   std::vector<double> maximumHeightPeakList;
     std::vector<rotationPeakfs2D> estimatedAngles;
     double angleCovariance;
     double angleTMP = this->sofftRegistrationVoxel2DRotationOnly(voxelData1Input, voxelData2Input, goodGuessAlpha,
@@ -586,7 +554,7 @@ Eigen::Matrix4d softRegistrationClass::registrationOfTwoVoxelsSOFFTFast(double v
 
         cv::Mat magTMP1(this->N, this->N, CV_64F, voxelData1);
         cv::Mat magTMP2(this->N, this->N, CV_64F, voxelData2);
-        //add gaussian blur
+        //add gaussian blur This was a test to see the benefits of that.
         if (useGauss) {
             for (int i = 0; i < 2; i++) {
                 cv::GaussianBlur(magTMP1, magTMP1, cv::Size(9, 9), 0);
@@ -701,59 +669,6 @@ bool softRegistrationClass::isPeak(cv::Mat mx[], std::vector<cv::Point> &conn_po
     }
     return isPeakEle;
 }
-
-void softRegistrationClass::imextendedmax_imreconstruct(cv::Mat g, cv::Mat f, cv::Mat &dest) {
-
-    cv::Mat m0, m1, m;
-    m1 = f;
-    do {
-        m0 = m1.clone();
-        cv::dilate(m0, m, cv::Mat());
-        cv::min(g, m, m1);
-    } while (cv::countNonZero(m1 != m0) != 0);
-    dest = m1.clone();
-}
-
-//cv::Mat softRegistrationClass::opencv_imextendedmax(cv::Mat &inputMatrix, double hParam) {
-//
-//    std::cout << inputMatrix << std::endl;
-////    cv::imshow("Display window", inputMatrix);
-////    int k = cv::waitKey(0); // Wait for a keystroke in the window
-//    double h = hParam;
-//    cv::Mat gray_image, dst, fin_image, m, m2;
-//
-////    cvtColor(inputMatrix, gray_image, cv::COLOR_BGR2GRAY);
-//    cv::max((inputMatrix - h), 0, m);
-//    std::cout << m << std::endl;
-////    cv::imshow("Display window", m);
-////    k = cv::waitKey(0); // Wait for a keystroke in the window
-//
-//    softRegistrationClass::imextendedmax_imreconstruct(inputMatrix, m, dst);
-//    std::cout << dst << std::endl;
-//    std::cout << "here4" << std::endl;
-//    cv::imshow("Display window", dst);
-//    int k = cv::waitKey(0); // Wait for a keystroke in the window
-//    cv::subtract(dst, 0.5, m2);
-//    std::cout << m2 << std::endl;
-////    cv::imshow("Display window", m2);
-////    k = cv::waitKey(0); // Wait for a keystroke in the window
-//    softRegistrationClass::imextendedmax_imreconstruct(dst, m2, m);
-//    std::cout << m << std::endl;
-////    cv::imshow("Display window", m);
-////    k = cv::waitKey(0); // Wait for a keystroke in the window
-//    cv::subtract(dst, m, m2);
-//    std::cout << m2 << std::endl;
-//    std::cout << "here5" << std::endl;
-//    cv::imshow("Display window", m2);
-//    k = cv::waitKey(0); // Wait for a keystroke in the window
-//
-//    fin_image = m2;
-//
-//    return fin_image;
-//
-//}
-
-
 
 double softRegistrationClass::normalizationFactorCalculation(int x, int y) {
 

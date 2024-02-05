@@ -5,32 +5,17 @@
 #include "rclcpp/rclcpp.hpp"
 
 // just for tricking compiler
-//#include "geometry_msgs/msg/accel_with_covariance_stamped.hpp"
 #include "waterlinked_a50/msg/transducer_report_stamped.hpp"
-//#include "waterlinked_a50/msg/position_report_stamped.hpp"
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
-//#include <geometry_msgs/msg/PoseWithCovarianceStamped.hpp>
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/fluid_pressure.hpp"
-//#include "geometry_msgs/TwistWithCovarianceStamped.h"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
-//#include "geometry_msgs/TwistStamped.h"
-#include "geometry_msgs/msg/twist_stamped.hpp"
-//#include "geometry_msgs/Vector3Stamped.h"
-#include "geometry_msgs/msg/vector3_stamped.hpp"
-//#include "geometry_msgs/PoseStamped.h"
-#include "geometry_msgs/msg/pose_stamped.hpp"
-//#include "px4_msgs/msg/sensor_baro.hpp"
-//#include "px4_msgs/msg/vehicle_air_data.hpp"
+
 #include "px4_msgs/msg/sensor_combined.hpp"
 
-//#include "../slamTools/generalHelpfulTools.h"
-//#include "waterlinked_dvl/TransducerReportStamped.h"
-//#include "commonbluerovmsg/srv/reset_ekf.hpp"
-//#include "commonbluerovmsg/msg/height_stamped.hpp"
-//#include <chrono>
+
 #include <thread>
 
 static constexpr double CONSTANTS_ONE_G = 9.80665;
@@ -101,8 +86,6 @@ private:
     Eigen::Quaterniond rotationOfDVL;
     Eigen::Vector3d positionIMU, positionDVL;
 
-//    int currentInputDVL;
-//    int currentInputIMU;
     double pressureWhenStarted;
     bool firstMessage;
 
@@ -190,25 +173,6 @@ private:
         this->publisherTwistEkf->publish(twistMsg);
     }
 
-
-//    void imuCallbackPX4(const px4_msgs::msg::SensorCombined::SharedPtr msg) {
-//        //change the orientation of the IMU message
-//        sensor_msgs::msg::Imu newMsg{};
-//        newMsg.linear_acceleration.x = msg->accelerometer_m_s2[0];
-//        newMsg.linear_acceleration.y = msg->accelerometer_m_s2[1];
-//        newMsg.linear_acceleration.z = msg->accelerometer_m_s2[2];
-//
-//        newMsg.angular_velocity.x = msg->gyro_rad[0];
-//        newMsg.angular_velocity.y = msg->gyro_rad[1];
-//        newMsg.angular_velocity.z = msg->gyro_rad[2];
-//        newMsg.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
-//
-//
-//        this->updateEKFMutex.lock();
-//        this->imuCallbackHelper(std::make_shared<sensor_msgs::msg::Imu>(newMsg));
-//        this->updateEKFMutex.unlock();
-//    }
-
     void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
         //change the orientation of the IMU message
 
@@ -235,32 +199,6 @@ private:
         this->DVLCallbackDVLHelper(msg);
         this->updateEKFMutex.unlock();
     }
-
-//    void DVLCallbackSimulationHelper(const geometry_msgs::msg::Vector3Stamped::SharedPtr msg) {
-//        this->currentEkf.updateDVL(msg->vector.x, msg->vector.y, msg->vector.z, Eigen::Quaterniond(1, 0, 0, 0),
-//                                   this->positionDVL,
-//                                   msg->header.stamp);
-//    }
-
-//    void DVLCallbackSimulation(const geometry_msgs::msg::Vector3Stamped::SharedPtr msg) {
-//        this->updateEKFMutex.lock();
-//        this->DVLCallbackSimulationHelper(msg);
-//        this->updateEKFMutex.unlock();
-//    }
-//
-//    void DVLCallbackMavrosHelper(const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
-//        this->currentEkf.updateDVL(msg->twist.linear.x, msg->twist.linear.y, msg->twist.linear.z,
-//                                   Eigen::Quaterniond(1, 0, 0, 0), this->positionDVL,
-//                                   msg->header.stamp);
-//    }
-
-//    void DVLCallbackMavros(const geometry_msgs::msg::TwistStamped::SharedPtr msg) {
-//        this->updateEKFMutex.lock();
-//        this->DVLCallbackMavrosHelper(msg);
-//        this->updateEKFMutex.unlock();
-//    }
-
-
 
     void depthSensorBaroSensorTubeCallback(const sensor_msgs::msg::FluidPressure::SharedPtr msg) {
 
@@ -306,25 +244,7 @@ private:
         return q;
     };
 
-public:
-//    pose getPoseOfEKF() {
-//        return this->currentEkf.getState();
-//    }
 };
-
-
-//Eigen::Quaterniond getQuaternionForMavrosFromRPY(double roll, double pitch, double yaw) {
-//    return generalHelpfulTools::getQuaternionFromRPY(roll, -pitch, -yaw + M_PI / 2);
-//}
-
-//Eigen::Vector3f getPositionForMavrosFromXYZ(Eigen::Vector3f inputPosition) {
-//    Eigen::AngleAxisf rotation_vector180X(180.0 / 180.0 * 3.14159, Eigen::Vector3f(1, 0, 0));
-//    Eigen::AngleAxisf rotation_vector90Z(90.0 / 180.0 * 3.14159, Eigen::Vector3f(0, 0, 1));
-//    Eigen::Vector3f positionRotatedForMavros =
-//            rotation_vector90Z.toRotationMatrix() * rotation_vector180X.toRotationMatrix() * inputPosition;
-//    return positionRotatedForMavros;
-//
-//}
 
 int main(int argc, char **argv) {
 

@@ -88,7 +88,7 @@ private:
     Eigen::Matrix3d covariance;
     intensityMeasurement intensities;
     Eigen::Matrix4d groundTruthTransformation;
-    double numberOfMarkersSeen;
+//    double numberOfMarkersSeen;
     double *voxelData;
     int typeOfVertex;
     double timeStamp;

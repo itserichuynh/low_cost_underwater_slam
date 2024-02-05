@@ -18,10 +18,7 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
     nav_msgs::msg::Path posOverTimeGT;
     posOverTimeGT.header.frame_id = "map_ned";
     Eigen::Matrix4d currentTransformation, completeTransformation;
-    //pcl::PointCloud<pcl::PointXYZ> completeCloudWithPos;
 
-
-    //std::vector<vertex> vertexList =;
     for (int i = 0; i < graphSaved->getVertexList()->size(); i++) {//skip the first pointCloud
         vertex vertexElement = graphSaved->getVertexList()->at(i);
 
@@ -257,13 +254,9 @@ double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int ind
             if (maximumOfVoxelData < voxelData[i]) {
                 maximumOfVoxelData = voxelData[i];
             }
-            //std::cout << voxelData[i] << std::endl;
 
         }
-    }// @TODO calculate the maximum and normalize "somehow"
-
-
-
+    }
 
     free(voxelDataIndex);
     return maximumOfVoxelData;
@@ -276,7 +269,6 @@ slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double endT
                                               std::deque<transformationStamped> &transformationList,
                                               std::mutex &mutexForAccess) {
 
-    //@TEST
     std::lock_guard<std::mutex> lock(mutexForAccess);
     //find index of start and end
     int indexOfStart = 0;
@@ -519,7 +511,6 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
     std::vector<int> potentialLoopClosureVector;
     int potentialLoopClosure = ignoreStartLoopClosure;
     for (int s = ignoreStartLoopClosure; s < graphSaved->getVertexList()->size() - ignoreEndLoopClosure; s++) {
-        //dist.row(s) = (graphSaved->getVertexList()[s].getPositionVertex() - estimatedPosLastPoint).norm();
         double d1 = sqrt(
                 pow((estimatedPosLastPoint.x() - graphSaved->getVertexList()->at(s).getPositionVertex().x()), 2) +
                 pow((estimatedPosLastPoint.y() - graphSaved->getVertexList()->at(s).getPositionVertex().y()), 2));
@@ -549,7 +540,6 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
     int loopclosureNumber = 0;
     bool foundLoopClosure = false;
     for (const auto &potentialKey: potentialLoopClosureVector) {
-        double fitnessScore = 1;
 
         //create voxel
         double *voxelData1;
@@ -592,7 +582,6 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
                 (graphSaved->getVertexList()->at(indexStart1).getTransformation().inverse() *
                  graphSaved->getVertexList()->at(indexStart2).getTransformation()).inverse();
         Eigen::Matrix3d covarianceEstimation = Eigen::Matrix3d::Zero();
-        double timeToCalculate;
         Eigen::Matrix4d currentTransformation = scanRegistrationObject->registrationOfTwoVoxelsSOFFTFast(voxelData1,
                                                                                                         voxelData2,
                                                                                                         initialGuessTransformation,
@@ -611,7 +600,7 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
                            currentRotDiff, covarianceEstimation, LOOP_CLOSURE);
         foundLoopClosure = true;
         loopclosureNumber++;
-        if (loopclosureNumber > 1) { break; }// break if multiple loop closures are found
+        if (loopclosureNumber > 1) { break; }// break if multiple loop closures are found(we decided on 1)
 
     }
     if (foundLoopClosure) {

@@ -48,13 +48,6 @@ Eigen::Matrix4d generalHelpfulTools::interpolationTwo4DTransformations(Eigen::Ma
     Eigen::Quaterniond rot1(transformation1.block<3, 3>(0, 0));
     Eigen::Quaterniond rot2(transformation2.block<3, 3>(0, 0));
 
-//    Eigen::Quaterniond rotTMP = rot1.inverse()*rot2;
-//    Eigen::Quaterniond resultingRot = rotTMP.slerp(t, Eigen::Quaterniond(1,0,0,0));
-//    Eigen::Vector3d resultingTranslation = (translation2-translation1)*t;
-//    Eigen::Matrix4d resultingTransformation = Eigen::Matrix4d::Identity();
-//    resultingTransformation.block<3, 3>(0, 0) = resultingRot.toRotationMatrix();
-//    resultingTransformation.block<3, 1>(0, 3) = resultingTranslation;
-
     Eigen::Quaterniond resultingRot = rot1.slerp(t, rot2);
     Eigen::Vector3d resultingTranslation = translation1 * t + translation2 * (1.0 - t);
 
@@ -85,46 +78,6 @@ double generalHelpfulTools::weighted_mean(const std::vector<double> &data) {
     return mean / double(data.size());
 }
 
-//void generalHelpfulTools::smooth_curve(const std::vector<double> &input, std::vector<double> &smoothedOutput,
-//                                       int window_half_width) {
-//
-//    int window_width = 2 * window_half_width + 1;
-//
-//    int size = input.size();
-//
-//    std::vector<double> sample(window_width);
-//
-//    for (int i = 0; i < size; i++) {
-//
-//        for (int j = 0; j < window_width; j++) {
-//
-//            int shifted_index = i + j - window_half_width;
-//            if (shifted_index < 0) shifted_index = 0;
-//            if (shifted_index > size - 1) shifted_index = size - 1;
-//            sample[j] = input[shifted_index];
-//
-//        }
-//
-//        smoothedOutput.push_back(generalHelpfulTools::weighted_mean(sample));
-//
-//    }
-//
-//}
-
-
-//Eigen::Matrix4d generalHelpfulTools::convertMatrixFromOurSystemToOpenCV(Eigen::Matrix4d inputMatrix) {
-//
-////    return(generalHelpfulTools::getTransformationMatrixFromRPY(0, 0, 180.0 / 180.0 * M_PI)*inputMatrix);
-//    double x1 = inputMatrix(0, 3);
-//    double y1 = inputMatrix(1, 3);
-//    inputMatrix(0, 3) = y1;
-//    inputMatrix(1, 3) = x1;
-//    Eigen::Matrix3d tmpMatrix = inputMatrix.block<3, 3>(0, 0).inverse();
-//    inputMatrix.block<3, 3>(0, 0) = tmpMatrix;
-//    return inputMatrix;
-//}
-
-
 double generalHelpfulTools::normalizeAngle(double inputAngle){
 
     while(inputAngle<0){
@@ -136,38 +89,3 @@ double generalHelpfulTools::normalizeAngle(double inputAngle){
 
 }
 
-//std::vector<std::string> generalHelpfulTools::getNextLineAndSplitIntoTokens(std::istream &str) {
-//    std::vector<std::string> result;
-//    std::string line;
-//    std::getline(str, line);
-//
-//    std::stringstream lineStream(line);
-//    std::string cell;
-//
-//    while (std::getline(lineStream, cell, ',')) {
-//        result.push_back(cell);
-//    }
-//    // This checks for a trailing comma with no data after it.
-//    if (!lineStream && cell.empty()) {
-//        // If there was a trailing comma then add an empty element.
-//        result.push_back("");
-//    }
-//    return result;
-//}
-
-//void generalHelpfulTools::splitTransformationMatrixToQuadAndTrans(Eigen::Vector3d &translation, Eigen::Quaterniond &rotation,
-//                                                                  Eigen::Matrix4d &transformationMatrix) {
-//
-//    rotation = Eigen::Quaterniond(transformationMatrix.block<3, 3>(0, 0));
-//    translation = transformationMatrix.block<3, 1>(0, 3);
-//
-//
-//}
-
-
-//Eigen::Matrix4d
-//generalHelpfulTools::getTransformationMatrixTF2(tf2::Vector3 &translation, tf2::Quaternion &rotation) {
-//    Eigen::Vector3d translationEigen(translation.x(), translation.y(), translation.z());
-//    Eigen::Quaterniond rotationEigen(rotation.w(), rotation.x(), rotation.y(), rotation.z());
-//    return generalHelpfulTools::getTransformationMatrix(translationEigen, rotationEigen);
-//}

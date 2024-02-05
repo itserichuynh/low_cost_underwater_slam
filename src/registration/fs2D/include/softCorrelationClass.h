@@ -151,8 +151,8 @@ private:
     fftw_plan p1;
     int na[2], inembed[2], onembed[2];
     int rank, howmany, istride, idist, ostride, odist;
-    int tmp;//, maxloc, ii, jj, kk;
-//    double maxval, tmpval;
+    int tmp;
+
     double *weights;
     double *seminaive_naive_tablespace;
     double **seminaive_naive_table;

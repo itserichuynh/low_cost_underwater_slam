@@ -50,10 +50,6 @@ struct transformationStamped {
     double timeStamp;
 };
 
-//struct settingsMethodUsed {
-//    int whichMethod;
-//    bool initialGuess;
-//};
 
 class slamToolsRos {
 
@@ -69,7 +65,6 @@ public:
 
 
 
-//    static std::vector<double> linspace(double start_in, double end_in, int num_in);
 
 
 
@@ -99,11 +94,6 @@ public:
     static bool calculateStartAndEndIndexForVoxelCreation(int indexMiddle, int &indexStart, int &indexEnd,
                                                           graphSlamSaveStructure *usedGraph);
 
-//    static void
-//    saveResultingRegistration(double *voxelData1, double *voxelData2, graphSlamSaveStructure *usedGraph,
-//                              int dimensionOfVoxelData,
-//                              double ignoreDistanceToRobot, double distanceOfVoxelDataLengthSI, bool debugRegistration,
-//                              Eigen::Matrix4d currentTransformation);
 
     static bool
     loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved, softRegistrationClass *scanRegistrationObject,
@@ -111,11 +101,7 @@ public:
                                double ignoreDistanceToRobot, double distanceOfVoxelDataLengthSI, bool useInitialTranslation,int ignoreStartLoopClosure,int ignoreEndLoopClosure,
                                double potentialNecessaryForPeak = 0.1, double maxLoopClosure = 100);
 
-//    static void saveResultingRegistrationTMPCOPY(int indexStart1, int indexEnd1, int indexStart2, int indexEnd2,
-//                                                 graphSlamSaveStructure *usedGraph, int dimensionOfVoxelData,
-//                                                 double ignoreDistanceToRobot, double distanceOfVoxelDataLengthSI,
-//                                                 bool debugRegistration, Eigen::Matrix4d currentTransformation,
-//                                                 Eigen::Matrix4d initialGuess);
+
 
 
 

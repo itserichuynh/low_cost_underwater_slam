@@ -29,19 +29,10 @@ public:
 
     static double weighted_mean(const std::vector<double> &data);
 
-//    static void
-//    smooth_curve(const std::vector<double> &input, std::vector<double> &smoothedOutput, int window_half_width);
-//
-//    static Eigen::Matrix4d convertMatrixFromOurSystemToOpenCV(Eigen::Matrix4d inputMatrix);
+
 
     static double normalizeAngle(double inputAngle);
 
-//    static std::vector<std::string> getNextLineAndSplitIntoTokens(std::istream &str);
-//
-//    static void splitTransformationMatrixToQuadAndTrans(Eigen::Vector3d &translation, Eigen::Quaterniond &rotation,
-//                                                        Eigen::Matrix4d &transformationMatrix);
-//
-//    static Eigen::Matrix4d getTransformationMatrixTF2(tf2::Vector3 &translation, tf2::Quaternion &rotation);
 
 };
 

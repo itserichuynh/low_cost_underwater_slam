@@ -12,35 +12,20 @@ void ekfClassDVL::predictionImu(double xAccel, double yAccel, double zAccel, Eig
     // A-Matrix is zeros, except for the entries of transition between velocity and position.(there time diff since last prediction
     // update state
     Eigen::Vector3d bodyAcceleration(xAccel, yAccel, zAccel);
-//    Eigen::Vector3d bodyAccelerationNED =Eigen::AngleAxisd(M_PI,Eigen::Vector3d::UnitX()).toRotationMatrix()*bodyAcceleration;
 
 
-//    Eigen::Vector3d positionIMU(0, 0, 0);
     Eigen::Vector3d angularVelocity(currentStateBeforeUpdate[9], currentStateBeforeUpdate[10],
                                     currentStateBeforeUpdate[11]);
 
     Eigen::Vector3d bodyAccelerationReal = (bodyAcceleration +
                                             this->getRotationVector().inverse() * Eigen::Vector3d(0, 0, 9.81) -
                                             angularVelocity.cross(angularVelocity.cross(positionIMU)));
-//    Eigen::Vector3d bodyAccelerationReal2 = this->getRotationVector()*(bodyAcceleration+this->getRotationVector()*Eigen::Vector3d(0,0,9.81)+angularVelocity.cross(angularVelocity.cross(positionIMU)));
 
 
     // bodyAcceleration has to be changed to correct rotation(body acceleration)
     Eigen::Vector3d localAcceleration = this->getRotationVector() *
                                         bodyAccelerationReal;
 
-
-
-//    std::cout << "acceleations: " << std::endl;
-//    std::cout << bodyAcceleration << std::endl;
-//    std::cout << angularVelocity << std::endl;
-//    std::cout << angularVelocity.cross(angularVelocity.cross(positionIMU)) << std::endl;
-//    std::cout << bodyAcceleration << std::endl;
-//    std::cout << this->getRotationVector()*Eigen::Vector3d(0,0,9.81) << std::endl;
-//    std::cout << bodyAccelerationReal1 << std::endl;
-//    std::cout << bodyAccelerationReal2 << std::endl;
-//    std::cout << localAcceleration << std::endl;
-//    localAcceleration = bodyAccelerationReal1;
 
     double timeDiff = (timeStamp - this->stateOfEKF.timeLastPrediction).seconds();
 
@@ -73,37 +58,6 @@ void ekfClassDVL::predictionImu(double xAccel, double yAccel, double zAccel, Eig
     this->stateOfEKF.covariance = A * this->stateOfEKF.covariance * A.transpose() + processNoise;
     this->stateOfEKF.timeLastPrediction = timeStamp;
 
-}
-
-void ekfClassDVL::simplePrediction(rclcpp::Time timeStamp) {
-    //for saving the current EKF pose difference in
-    double timeDiff = (timeStamp - this->stateOfEKF.timeLastPrediction).seconds();
-
-    if (timeDiff > 0.4 || timeDiff < 0) {
-        timeDiff = 0.4;
-    }
-    Eigen::MatrixXd A = Eigen::MatrixXd::Identity(12, 12);
-    //state Transition Matrix
-    A(0, 3) = timeDiff;
-    A(1, 4) = timeDiff;
-    A(2, 5) = timeDiff;
-    A(6, 9) = timeDiff;
-    A(7, 10) = timeDiff;
-    A(8, 11) = timeDiff;
-    Eigen::VectorXd state = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
-
-    state = A * state;
-    if (state(8) > M_PI) {
-        state(8) = state(8) - 2 * M_PI;
-    }
-    if (state(8) < -M_PI) {
-        state(8) = state(8) + 2 * M_PI;
-    }
-
-    this->stateOfEKF.applyState(state);
-    //update covariance
-    this->stateOfEKF.covariance = A * this->stateOfEKF.covariance * A.transpose() + processNoise;
-    this->stateOfEKF.timeLastPrediction = timeStamp;
 }
 
 void ekfClassDVL::updateIMU(double roll, double pitch, double xAngularVel, double yAngularVel, double zAngularVel,
@@ -140,11 +94,6 @@ void ekfClassDVL::updateIMU(double roll, double pitch, double xAngularVel, doubl
     Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementImuVelocity;
     Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
     Eigen::VectorXd newState = currentStateBeforeUpdate + K * innovation;
-//    std::cout<< K * innovation <<endl;
-//    std::cout << "state Roll: " << this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel()[6]*180/M_PI << std::endl;
-//    std::cout << "IMU Roll: " << roll*180/M_PI << std::endl;
-//    std::cout << "state Pitch: " << this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel()[7]*180/M_PI << std::endl;
-//    std::cout << "IMU Pitch: " << pitch*180/M_PI << std::endl;
 
     this->stateOfEKF.applyState(newState);
     this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
@@ -163,17 +112,7 @@ ekfClassDVL::updateDVL(double xVel, double yVel, double zVel, Eigen::Quaterniond
     //reduce velocity dependent on rotation and position of dvl
     Eigen::Vector3d angularVelocity(currentStateBeforeUpdate[9], currentStateBeforeUpdate[10],
                                     currentStateBeforeUpdate[11]);
-//    std::cout << "angularVelocity:" << std::endl;
-//    std::cout << angularVelocity << std::endl;
-//    std::cout << "velocityBodyLinear before:" << std::endl;
-//    std::cout << velocityBodyLinear << std::endl;
-    velocityBodyLinear = velocityBodyLinear-angularVelocity.cross(positionDVL);
-//    std::cout << "velocityBodyLinear after:" << std::endl;
-//    std::cout << velocityBodyLinear << std::endl;
-//    std::cout << "angularVelocity.cross(positionDVL):" << std::endl;
-//    std::cout << angularVelocity.cross(positionDVL) << std::endl;
-//    std::cout << "next" << std::endl;
-//    std::cout << angularVelocity.cross(positionDVL) << std::endl;
+    velocityBodyLinear = velocityBodyLinear - angularVelocity.cross(positionDVL);
     // velocityAngular has to be changed to correct rotation(world velocityAngular)
     Eigen::Vector3d velocityLocalLinear = this->getRotationVector() * velocityBodyLinear;
 
@@ -187,24 +126,11 @@ ekfClassDVL::updateDVL(double xVel, double yVel, double zVel, Eigen::Quaterniond
     H(4, 4) = 1;
     H(5, 5) = 1;
     innovation = z - H * this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();//also y
-//    std::cout << "Inno: " <<std::endl;
-//    std::cout << innovation << std::endl;
     Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementNoiseDVL;
-//    std::cout << "S: " <<std::endl;
-//    std::cout << S << std::endl;
-//    std::cout << "S Inverse: " <<std::endl;
-//    std::cout << S.inverse() << std::endl;
     Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
-//    std::cout << "Covariance: " <<std::endl;
-//    std::cout << this->stateOfEKF.covariance << std::endl;
-//    std::cout << "K: " <<std::endl;
-//    std::cout << K << std::endl;
     Eigen::VectorXd newState = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel() + K * innovation;
-//    std::cout << "\n"<< std::endl;
-//    std::cout << newState<< std::endl;
     this->stateOfEKF.applyState(newState);
     this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
-//    std::cout << "DVL UPDATE: \n" << velocityLocalLinear <<std::endl;
 }
 
 void
@@ -229,33 +155,6 @@ ekfClassDVL::updateHeight(double depth, rclcpp::Time timeStamp) {
     this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
 }
 
-void
-ekfClassDVL::updateHeading(double yawRotation, rclcpp::Time timeStamp) {
-    if (isnan(yawRotation)) {
-        return;
-    }
-    //for saving the current EKF pose difference in
-    Eigen::VectorXd currentStateBeforeUpdate = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
-
-    std::cout << "yaw update: " << yawRotation << std::endl;
-    std::cout << "before Update: " << this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel()[8] << std::endl;
-
-    Eigen::VectorXd innovation;
-    Eigen::VectorXd z = Eigen::VectorXd::Zero(12);
-    z(8) = yawRotation;
-    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(12, 12);
-    H(8, 8) = 1;
-    innovation = this->innovationStateDiff(z, H, currentStateBeforeUpdate);//also y
-    Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementNoiseDepth;
-    Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
-    Eigen::VectorXd newState = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel() + K * innovation;
-    this->stateOfEKF.applyState(newState);
-    this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
-
-    std::cout << "after Update: " << this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel()[8] << std::endl;
-}
-
-
 pose ekfClassDVL::getState() {
     return this->stateOfEKF;
 }
@@ -265,10 +164,6 @@ Eigen::Quaterniond ekfClassDVL::getRotationVector() {
     double rotationY = this->stateOfEKF.rotation.y();
     double rotationZ = this->stateOfEKF.rotation.z();
 
-//    Eigen::AngleAxisd rollAngle(, Eigen::Vector3d::UnitX());
-//    Eigen::AngleAxisd pitchAngle(rotationY, Eigen::Vector3d::UnitY());
-//    Eigen::AngleAxisd yawAngle(rotationZ, Eigen::Vector3d::UnitZ());//remove the yaw rotation
-
     Eigen::Quaterniond rotDiff = generalHelpfulTools::getQuaternionFromRPY(rotationX, rotationY, rotationZ);
     return rotDiff;
 }
@@ -276,10 +171,6 @@ Eigen::Quaterniond ekfClassDVL::getRotationVector() {
 Eigen::Quaterniond ekfClassDVL::getRotationVectorWithoutYaw() {
     double rotationX = this->stateOfEKF.rotation.x();
     double rotationY = this->stateOfEKF.rotation.y();
-
-//    Eigen::AngleAxisd rollAngle(rotationX, Eigen::Vector3d::UnitX());
-//    Eigen::AngleAxisd pitchAngle(rotationY, Eigen::Vector3d::UnitY());
-
     Eigen::Quaterniond rotDiff = generalHelpfulTools::getQuaternionFromRPY(rotationX, rotationY, 0);
     return rotDiff;
 }
@@ -294,57 +185,3 @@ Eigen::VectorXd ekfClassDVL::innovationStateDiff(Eigen::VectorXd z, Eigen::Matri
 
     return innovation;
 }
-
-void ekfClassDVL::resetToPos(double x, double y, double yaw, bool resetCovariance) {
-    //@TODO make sure yaw is possible additionally rotate the current velocity to the correct value of last yaw
-    this->stateOfEKF.rotation.z() = yaw;
-    this->stateOfEKF.position.x() = x;
-    this->stateOfEKF.position.y() = y;
-    //xyzvxvyvzrpyrvelpvelyvel
-    if (resetCovariance) {
-        this->stateOfEKF.covariance(0, 0) = 0;//x
-        this->stateOfEKF.covariance(1, 1) = 0;//y
-        this->stateOfEKF.covariance(8, 8) = 0;//yaw
-    }
-
-}
-
-void ekfClassDVL::setProcessNoise(double xNoise, double yNoise, double zNoise, double vxNoise, double vyNoise,
-                                  double vzNoise,
-                                  double rNoise, double pNoise, double yawNoise, double vrNoise, double vpNoise,
-                                  double vyawNoise) {
-    this->processNoise(0, 0) = xNoise;//x
-    this->processNoise(1, 1) = yNoise;//y
-    this->processNoise(2, 2) = zNoise;//z
-    this->processNoise(3, 3) = vxNoise;//vx
-    this->processNoise(4, 4) = vyNoise;//vy
-    this->processNoise(5, 5) = vzNoise;//vz
-    this->processNoise(6, 6) = rNoise;//r
-    this->processNoise(7, 7) = pNoise;//p
-    this->processNoise(8, 8) = yawNoise;//y
-    this->processNoise(9, 9) = vrNoise;//vr
-    this->processNoise(10, 10) = vpNoise;//vp
-    this->processNoise(11, 11) = vyawNoise;//vy
-}
-
-void ekfClassDVL::setMeasurementNoiseDVL(double vxNoise, double vyNoise, double vzNoise) {
-    this->measurementNoiseDVL(3, 3) = vxNoise;//vx
-    this->measurementNoiseDVL(4, 4) = vyNoise;//vy
-    this->measurementNoiseDVL(5, 5) = vzNoise;//vz
-//    std::cout << vxNoise <<" " <<vyNoise<<" " << vzNoise << std::endl;
-}
-
-void ekfClassDVL::setMeasurementNoiseDepth(double zNoise) {
-    this->measurementNoiseDepth(2, 2) = zNoise;//z
-}
-
-void
-ekfClassDVL::setMeasurementNoiseIMUVel(double rNoise, double pNoise, double vrNoise, double vpNoise, double vyNoise) {
-    this->measurementImuVelocity(6, 6) = rNoise;//r
-    this->measurementImuVelocity(7, 7) = pNoise;//p
-    this->measurementImuVelocity(9, 9) = vrNoise;//vr
-    this->measurementImuVelocity(10, 10) = vpNoise;//vp
-    this->measurementImuVelocity(11, 11) = vyNoise;//vy
-}
-
-

@@ -15,7 +15,6 @@ def generate_launch_description():
     arg = SetEnvironmentVariable('RCUTILS_LOGGING_USE_STDOUT', '1')
     ld.add_action(arg)
 
-    # parameters_file_path = Path(get_package_share_directory('waterlinked_a50'), 'param', 'params.yaml')
     config = os.path.join(
         get_package_share_directory('low_cost_underwater_slam'),
         'config',
