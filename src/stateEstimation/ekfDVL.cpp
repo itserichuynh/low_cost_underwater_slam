@@ -9,7 +9,7 @@ void ekfClassDVL::predictionImu(double xAccel, double yAccel, double zAccel, Eig
     //for saving the current EKF pose difference in
     Eigen::VectorXd currentStateBeforeUpdate = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
 
-    // A-Matrix is zeros, except for the entries of transition between velocity and position.(there time diff since last prediction
+    // A-Matrix is identity, except for the entries of transition between velocity and position.(there time diff since last prediction)
     // update state
     Eigen::Vector3d bodyAcceleration(xAccel, yAccel, zAccel);
 
@@ -44,8 +44,9 @@ void ekfClassDVL::predictionImu(double xAccel, double yAccel, double zAccel, Eig
     Eigen::VectorXd inputMatrix = Eigen::VectorXd::Zero(12);
     inputMatrix(3) = localAcceleration(0) * timeDiff;
     inputMatrix(4) = localAcceleration(1) * timeDiff;
-    inputMatrix(5) = localAcceleration(2) * timeDiff;//this is z acceleration localAcceleration(2) * timeDiff;
+    inputMatrix(5) = localAcceleration(2) * timeDiff;
     state = A * state + inputMatrix;
+    //look for wrap around
     if (state(8) > M_PI) {
         state(8) = state(8) - 2 * M_PI;
     }
@@ -178,7 +179,7 @@ Eigen::Quaterniond ekfClassDVL::getRotationVectorWithoutYaw() {
 Eigen::VectorXd ekfClassDVL::innovationStateDiff(Eigen::VectorXd z, Eigen::MatrixXd H,
                                                  Eigen::VectorXd currentStateBeforeUpdate) {//xyz vxvyvz rpy rvel pvel yvel
     Eigen::VectorXd innovation;
-    innovation = z - H * this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();//also y
+    innovation = z - H * currentStateBeforeUpdate;//also y
     innovation(6) = generalHelpfulTools::angleDiff(z(6), H(6, 6) * currentStateBeforeUpdate(6));
     innovation(7) = generalHelpfulTools::angleDiff(z(7), H(7, 7) * currentStateBeforeUpdate(7));
     innovation(8) = generalHelpfulTools::angleDiff(z(8), H(8, 8) * currentStateBeforeUpdate(8));

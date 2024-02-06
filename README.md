@@ -8,8 +8,8 @@ It works with the help of the Fourier SOFT 2D(FS2D) registration, which can be l
 In general, this package provides an experimental approach, which still has much room for improvement.
 See this as a start for further research/Development.
 
-You can test different settings with the help of [ekfRobot.yaml](config%2FekfRobot.yaml).
-Start SLAM + EKF first,(with [experiment1_launch.py](launch%2Fexperiment1_launch.py)), then start the ROS2 Bag
+You can test different settings with the help of [slamSettings.yaml](config%2FslamSettings.yaml).
+Start SLAM + EKF + RViz first,(with [exampleSlamRun.py](launch%2FexampleSlamRun.py)), then start the ROS2 Bag.
 
 
 
@@ -22,8 +22,8 @@ Start SLAM + EKF first,(with [experiment1_launch.py](launch%2Fexperiment1_launch
 * CGAL `sudo apt install libcgal-dev`
 All the other Libraries are either standard(Eigen, ROS2, OpenGT etc.), or inside this package.(FMS registration(uses library [soft20](https://github.com/artivis/soft20.git), Peak
 detection(have a look at find-peaks))
-An Example Bag in `data`, where the SLAM can be performed on is at included in this package. Look in CMakeLists.txt for other
-libraries if something is missing.
+An Example Bag in `data`, where the SLAM can be performed on is at included in this package. You have to unzip the file.
+Look in CMakeLists.txt for other libraries if something is missing.
 
 
 
