@@ -55,7 +55,7 @@ public:
 
 
 
-        //we have to make sure, to get ALLL the data. Therefor we have to change that in the future.
+        //we have to make sure, to get ALL the data. Therefor we have to change that in the future.
         rclcpp::QoS qos = rclcpp::QoS(rclcpp::KeepLast(10), rmw_qos_profile_system_default);
         qos.history(rmw_qos_history_policy_e::RMW_QOS_POLICY_HISTORY_KEEP_ALL);
         qos.reliability(rmw_qos_reliability_policy_e::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
@@ -66,7 +66,8 @@ public:
         qos.liveliness_lease_duration(rmw_time_t(RMW_DURATION_INFINITE));
         qos.avoid_ros_namespace_conventions(false);
 
-
+        // these allow to control how callbacks are scheduled and run, especially in a multi-threaded executor
+        // MutuallyExclusive: only one callback in the group can be executing at a time
         this->callback_group_subscriber1_ = this->create_callback_group(
                 rclcpp::CallbackGroupType::MutuallyExclusive);
         this->callback_group_subscriber2_ = this->create_callback_group(
@@ -81,22 +82,16 @@ public:
                 std::bind(&rosClassSlam::stateEstimationCallback,
                           this, std::placeholders::_1), sub1_opt);
 
-
-
         this->subscriberIntensitySonar = this->create_subscription<ping360_sonar_msgs::msg::SonarEcho>(
                 "sonar/intensity", qos,
                 std::bind(&rosClassSlam::scanCallback,
                           this, std::placeholders::_1), sub2_opt);
 
-
-
         this->publisherSonarEcho = this->create_publisher<nav_msgs::msg::Path>(
                 "positionOverTime", qos);
 
-
         this->publisherEKF = this->create_publisher<nav_msgs::msg::Path>(
                 "positionOverTimeGT", qos);
-
 
         this->publisherMarkerArray = this->create_publisher<visualization_msgs::msg::MarkerArray>(
                 "covariance", qos);
@@ -120,13 +115,15 @@ public:
         this->numberOfTimesFirstScan = 0;
 
 
-
+        // fill in info about the OccupancyGrid
         map.info.height = this->map_size;
         map.info.width = this->map_size;
         map.info.resolution = this->dimension_size_map / this->map_size;
         map.info.origin.position.x = -this->dimension_size_map / 2;
         map.info.origin.position.y = -this->dimension_size_map / 2;
         map.info.origin.position.z = +0.5;
+
+        // fill in occupancy probability
         for (int i = 0; i < this->map_size; i++) {
             for (int j = 0; j < this->map_size; j++) {
                 //determine color:
@@ -201,11 +198,14 @@ private:
 
     void scanCallback(const ping360_sonar_msgs::msg::SonarEcho::SharedPtr msg) {
         std::lock_guard<std::mutex> lock(this->graphSlamMutex);
+
+        // from gradian to radian
         intensityMeasurement intensityTMP;
         if (this->sonar_forward_looking_down) {
             intensityTMP.angle = std::fmod(-msg->angle / 400.0 * M_PI * 2.0 + this->rotation_sonar_on_robot,
                                            M_PI * 2);// TEST TRYING OUT -
         } else {
+            // gradian to radian
             intensityTMP.angle = std::fmod(msg->angle / 400.0 * M_PI * 2.0 + this->rotation_sonar_on_robot,
                                            M_PI * 2);// TEST TRYING OUT -
         }
@@ -219,8 +219,8 @@ private:
         }
         intensityTMP.intensities = intensitiesVector;
 
+        // initialize the graph with first scan
         if (firstSonarInput) {
-
             this->graphSaved->addVertex(0, Eigen::Vector3d(0, 0, 0), Eigen::Quaterniond(1, 0, 0, 0),
                                         Eigen::Matrix3d::Zero(), intensityTMP,
                                         rclcpp::Time(msg->header.stamp).seconds(),
@@ -228,14 +228,16 @@ private:
             firstSonarInput = false;
             return;
         }
-        //add a new edge and vertex to the graph defined by EKF and Intensity Measurement
 
-        bool waitingForMessages = waitForEKFMessagesToArrive(rclcpp::Time(msg->header.stamp).seconds());
-        if (!waitingForMessages) {
+        //add a new edge and vertex to the graph defined by EKF and Intensity Measurement
+        bool messageReceived = waitForEKFMessagesToArrive(rclcpp::Time(msg->header.stamp).seconds());
+        if (!messageReceived) {
             std::cout << "return no message found: " << rclcpp::Time(msg->header.stamp).seconds() << "    "
                       << rclcpp::Clock(RCL_ROS_TIME).now().seconds() << std::endl;
             return;
         }
+
+        // calculate the pose difference
         edge differenceOfEdge = slamToolsRos::calculatePoseDiffByTimeDepOnEKF(
                 this->graphSaved->getVertexList()->back().getTimeStamp(), rclcpp::Time(msg->header.stamp).seconds(),
                 this->ekfTransformationList, this->stateEstimationMutex);
@@ -266,13 +268,16 @@ private:
                                   differenceOfEdge.getPositionDifference(), differenceOfEdge.getRotationDifference(),
                                   covarianceMatrix, INTEGRATED_POSE);
 
-
+        
+        // check if enough rotation has happened to consider this a keyframe
         double angleDiff = slamToolsRos::angleBetweenLastKeyframeAndNow(this->graphSaved);
         // best would be scan matching between this angle and transformation based last angle( i think this is currently done)
         if (abs(angleDiff) > 2 * M_PI / this->number_of_loop_closures_per_rotation) {
 
 
             this->graphSaved->getVertexList()->back().setTypeOfVertex(INTENSITY_SAVED_AND_KEYFRAME);
+
+            // Hmm?
             if (firstCompleteSonarScan) {
                 numberOfTimesFirstScan++;
                 if (numberOfTimesFirstScan > 2 * this->number_of_loop_closures_per_rotation - 1) {
@@ -283,7 +288,7 @@ private:
 
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-
+            // Loop closure process
             int indexStart1, indexEnd1, indexStart2, indexEnd2;
             slamToolsRos::calculateStartAndEndIndexForVoxelCreation(
                     this->graphSaved->getVertexList()->back().getKey() - 5, indexStart1, indexEnd1, this->graphSaved);
@@ -295,7 +300,7 @@ private:
                                                   this->graphSaved->getVertexList()->at(indexEnd2).getTimeStamp()
                       << std::endl;
 
-            //we inverse the initial guess, because the registration creates a T from scan 1 to scan 2.
+            // we inverse the initial guess, because the registration creates a T from scan 1 to scan 2.
             // But the graph creates a transformation from 1 -> 2 by the robot, therefore inverse.
             this->initialGuessTransformation =
                     (this->graphSaved->getVertexList()->at(indexStart2).getTransformation().inverse() *
@@ -414,12 +419,12 @@ private:
         int i = 0;
         if (!this->ekfTransformationList.empty()) {
             i = this->ekfTransformationList.size();
-            while (this->ekfTransformationList[i - 1].timeStamp > currentTimeStamp) {
+            while (this->ekfTransformationList[i - 1].timeStamp > currentTimeStamp) { // this means current msg should be earlier in the list
                 i--;
             }
         }
 
-        if (i == this->ekfTransformationList.size() || i == 0) {
+        if (i == this->ekfTransformationList.size() || i == 0) { // only allows to insert at the end or at the beginning
             Eigen::Quaterniond tmpQuad(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
                                        msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
             Eigen::Vector3d tmpVec(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
@@ -439,41 +444,59 @@ private:
 
     bool waitForEKFMessagesToArrive(double timeUntilWait) {
 
+        // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+        // double timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+        // while (this->ekfTransformationList.empty() && timeToCalculate < 2000) {
+        //     rclcpp::sleep_for(std::chrono::nanoseconds(2000000));
+        //     end = std::chrono::steady_clock::now();
+        //     timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+        // }
+        // while (timeUntilWait > ekfTransformationList.back().timeStamp) {
+        //     rclcpp::sleep_for(std::chrono::nanoseconds(2000000));
+        //     end = std::chrono::steady_clock::now();
+        //     timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+        //     double timeToWait = 4000;
+        //     if (timeToCalculate > timeToWait) {
+        //         std::cout << "we break" << std::endl;
+        //         break;
+        //     }
+        // }
+
+        // rclcpp::sleep_for(std::chrono::nanoseconds(2000000));
+        // end = std::chrono::steady_clock::now();
+        // timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+        // double timeToWait = 40;
+        // if (timeToCalculate > timeToWait) {
+        //     return false;
+        // } else {
+        //     return true;
+        // }
+
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::chrono::seconds timeout = std::chrono::seconds(2);
 
-        double timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        while (this->ekfTransformationList.empty() && timeToCalculate < 2000) {
+        while (this->ekfTransformationList.empty()) {
+            if (std::chrono::steady_clock::now() - begin > timeout)
+                return false;
             rclcpp::sleep_for(std::chrono::nanoseconds(2000000));
-            end = std::chrono::steady_clock::now();
-            timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
         }
+
+        timeout = std::chrono::seconds(4);
+
         while (timeUntilWait > ekfTransformationList.back().timeStamp) {
+            if (std::chrono::steady_clock::now() - begin > timeout)
+                return false;
+
             rclcpp::sleep_for(std::chrono::nanoseconds(2000000));
-            end = std::chrono::steady_clock::now();
-            timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-            double timeToWait = 4000;
-            if (timeToCalculate > timeToWait) {
-                std::cout << "we break" << std::endl;
-                break;
-            }
         }
 
-        rclcpp::sleep_for(std::chrono::nanoseconds(2000000));
-        end = std::chrono::steady_clock::now();
-        timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        double timeToWait = 40;
-        if (timeToCalculate > timeToWait) {
-            return false;
-        } else {
-            return true;
-        }
+        return true;
     }
 
-
-
 public:
-
+    // this function is used to create an occupancy map based on the pose graph
     void createImageOfAllScans() {
         std::vector<intensityValues> dataSet;
         double maximumIntensity = slamToolsRos::getDatasetFromGraphForMap(dataSet, this->graphSaved,
@@ -489,10 +512,11 @@ public:
             mapData[i] = 0;
         }
 
-        for (int currentPosition = 0;
-             currentPosition < dataSet.size(); currentPosition++) {
-            //calculate the position of each intensity and create an index in two arrays. First in voxel data, and second save number of intensities.
-            //was 90 yaw and 180 roll
+
+        for (int currentPosition = 0; currentPosition < dataSet.size(); currentPosition++) {
+            // calculate the position of each intensity and create an index in two arrays.
+            // First in voxel data, and second save number of intensities.
+            // was 90 yaw and 180 roll
 
             Eigen::Matrix4d transformationOfIntensityRay =
                     generalHelpfulTools::getTransformationMatrixFromRPY(0, 0, 0.0 / 180.0 * M_PI) *
@@ -505,9 +529,7 @@ public:
                                                                     ((double) dataSet[currentPosition].intensity.intensities.size())));
 
 
-            for (int j = ignoreDistance;
-                 j <
-                 dataSet[currentPosition].intensity.intensities.size(); j++) {
+            for (int j = ignoreDistance; j < dataSet[currentPosition].intensity.intensities.size(); j++) {
                 double distanceOfIntensity =
                         j / ((double) dataSet[currentPosition].intensity.intensities.size()) *
                         ((double) dataSet[currentPosition].intensity.range);
@@ -557,7 +579,7 @@ public:
         //TO THE END
         //NOW: TO THE BEGINNING
 
-
+        // normalize data
         double maximumOfVoxelData = 0;
         double minimumOfVoxelData = INFINITY;
 
@@ -573,13 +595,13 @@ public:
             }
         }
 
-
+        // Normalize map to values [0, 250] (grayscale image values)
         for (int i = 0; i < this->map_size * this->map_size; i++) {
 
             mapData[i] = (mapData[i] - minimumOfVoxelData) / (maximumOfVoxelData - minimumOfVoxelData) * 250;
         }
 
-
+        // build and publish occupancy map
         nav_msgs::msg::OccupancyGrid occupanyMap;
         occupanyMap.header.frame_id = "map_ned";
         occupanyMap.info.height = this->map_size;

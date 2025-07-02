@@ -31,11 +31,21 @@ Eigen::Quaterniond generalHelpfulTools::getQuaternionFromRPY(double roll, double
     return q;
 }
 
+// compute the smallest signed angle between two angles
 double generalHelpfulTools::angleDiff(double first, double second) {//first-second
     return atan2(sin(first - second), cos(first - second));
 }
 
-
+/*
+* Suppose a robot is moving between two known poses T1 and T2. You want to know the intermediate pose at some time t
+* between them (for visualization, control, or trajectory planning). This function lets you get that smoothly.
+* 
+* This function interpolates a 4×4 homogeneous transformation matrix between transformation1 and transformation2,
+* using a factor t where:
+* t = 0.0 gives transformation2
+* t = 1.0 gives transformation1
+* t = 0.5 gives you halfway between the two
+*/
 Eigen::Matrix4d generalHelpfulTools::interpolationTwo4DTransformations(Eigen::Matrix4d &transformation1,
                                                                        Eigen::Matrix4d &transformation2, double &t) {
     //computes the transofrmation matrix at time point t between 2 and 1

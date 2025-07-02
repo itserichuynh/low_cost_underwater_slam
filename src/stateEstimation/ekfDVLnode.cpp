@@ -6,6 +6,7 @@
 
 // just for tricking compiler
 #include "waterlinked_a50/msg/transducer_report_stamped.hpp"
+#include "usbl_seatrac_msgs/msg/position_stamped.hpp"
 
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
@@ -55,6 +56,8 @@ public:
         this->subscriberDVL = this->create_subscription<waterlinked_a50::msg::TransducerReportStamped>(
                 "/velocity_estimate", qos, std::bind(&RosClassEKF::DVLCallbackDVL, this, std::placeholders::_1));
 
+        this->subscriberUSBL = this->create_subscription<usbl_seatrac_msgs::msg::PositionStamped>("/usbl/data", qos, std::bind(&RosClassEKF::USBLCallback, this, std::placeholders::_1));
+
         this->subscriberDepthSensorBaroSensorTube = this->create_subscription<sensor_msgs::msg::FluidPressure>(
                 "/pressure", qos,
                 std::bind(
@@ -76,6 +79,8 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subscriberIMU;
     rclcpp::Subscription<px4_msgs::msg::SensorCombined>::SharedPtr subscriberPX4IMU;
 
+    rclcpp::Subscription<usbl_seatrac_msgs::msg::PositionStamped>::SharedPtr subscriberUSBL;
+
     rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr subscriberDepthSensorBaroSensorTube;
     rclcpp::Subscription<waterlinked_a50::msg::TransducerReportStamped>::SharedPtr subscriberDVL;
 
@@ -91,6 +96,7 @@ private:
 
     void imuCallbackHelper(const sensor_msgs::msg::Imu::SharedPtr msg) {
 
+        // Rotate 180 around x-axis
         Eigen::Matrix3d transformationX180DegreeRotationMatrix;
         Eigen::AngleAxisd rotation_vector2(0.0 / 180.0 * 3.14159, Eigen::Vector3d(1, 0, 0));
 
@@ -103,7 +109,7 @@ private:
         Eigen::Vector3d rotationVel(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
         rotationVel = transformationX180DegreeRotationMatrix * rotationVel;
 
-
+        // reconstruct a new imu message
         sensor_msgs::msg::Imu newMsg;
         newMsg.header = msg->header;
         newMsg.angular_velocity.x = rotationVel.x();
@@ -113,24 +119,25 @@ private:
         newMsg.linear_acceleration.x = acceleration.x();
         newMsg.linear_acceleration.y = acceleration.y();
         newMsg.linear_acceleration.z = acceleration.z();
+
+        // estimate roll and pitch from accelerometer 
+
+        // we kinda ignore the next line tbh
         Eigen::Quaterniond rotationRP(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
 
-        Eigen::Vector3d rollPitchYaw = this->getRollPitchYaw(rotationRP.inverse());
+        // Eigen::Vector3d rollPitchYaw = this->getRollPitchYaw(rotationRP.inverse());
         double rollIMUACCEL = atan2(-msg->linear_acceleration.y, msg->linear_acceleration.z);
         double pitchIMUACCEL = atan2(msg->linear_acceleration.x,
                                      sqrt(msg->linear_acceleration.y * msg->linear_acceleration.y +
                                           msg->linear_acceleration.z * msg->linear_acceleration.z));
 
+        // we cant really get yaw from accelerometer as gravity always points down
         rotationRP = getQuaternionFromRPY(rollIMUACCEL, pitchIMUACCEL, 0);
 
         newMsg.orientation.x = rotationRP.x();
         newMsg.orientation.y = rotationRP.y();
         newMsg.orientation.z = rotationRP.z();
         newMsg.orientation.w = rotationRP.w();
-
-
-
-
 
         Eigen::Quaterniond tmpRot;
         tmpRot.x() = newMsg.orientation.x;
@@ -176,7 +183,6 @@ private:
     void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
         //change the orientation of the IMU message
 
-
         this->updateEKFMutex.lock();
         this->imuCallbackHelper(msg);
         this->updateEKFMutex.unlock();
@@ -198,6 +204,10 @@ private:
         this->updateEKFMutex.lock();
         this->DVLCallbackDVLHelper(msg);
         this->updateEKFMutex.unlock();
+    }
+
+    void USBLCallback(usbl_seatrac_msgs::msg::PositionStamped::SharedPtr msg) {
+        return;
     }
 
     void depthSensorBaroSensorTubeCallback(const sensor_msgs::msg::FluidPressure::SharedPtr msg) {
@@ -247,8 +257,6 @@ private:
 };
 
 int main(int argc, char **argv) {
-
-
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<RosClassEKF>());
 

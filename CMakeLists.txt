@@ -45,6 +45,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(px4_msgs REQUIRED)
 #find_package(micron_driver_ros REQUIRED)
 find_package(waterlinked_a50 REQUIRED)
+find_package(usbl_seatrac_msgs REQUIRED)
 #find_package(rosbag2_cpp REQUIRED)
 
 #find_package(perception_oru REQUIRED)
@@ -191,7 +192,7 @@ target_link_libraries(slamtools posegraph fs2d)
 # EKF
 ################################################################################
 add_executable(ekfNode src/stateEstimation/ekfDVLnode.cpp src/stateEstimation/pose.h src/stateEstimation/ekfDVL.cpp src/stateEstimation/ekfDVL.h  )
-ament_target_dependencies(ekfNode rclcpp std_msgs sensor_msgs waterlinked_a50 tf2 Eigen3 px4_msgs)
+ament_target_dependencies(ekfNode rclcpp std_msgs sensor_msgs waterlinked_a50 usbl_seatrac_msgs tf2 Eigen3 px4_msgs)
 target_link_libraries(ekfNode generalhelpfullib)
 
 ################################################################################

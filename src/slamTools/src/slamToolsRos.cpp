@@ -91,7 +91,7 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
         currentMarker.color.g = 1;
         currentMarker.color.b = 0;
         currentMarker.color.a = 0.1;
-//currentMarker.lifetime.sec = 10;
+        //currentMarker.lifetime.sec = 10;
         currentMarker.type = 2;
         currentMarker.id = k;
         k++;
@@ -163,11 +163,19 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
 
 }
 
-//start means later in the graph . example: 800 start ;  340 end
+// sonar scan lines between the two timestamps are projected into a 2d voxel grid
+// start means later in the graph . example: 800 start ;  340 end
+// @param vexelData: pointer to a flattened 2D array to populate
+// @paran indexStart, indexEnd: range of vertices to use
+// @param numberOfPoints: grid resolution
+// @param usedGraph: SLAM graph
+// @param ignoreDistanceToRobot: remove close points
+// @param dimensionOfVoxelData: physical dimension in meter
 double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int indexStart, int indexEnd,
                                                      int numberOfPoints, graphSlamSaveStructure *usedGraph,
                                                      double ignoreDistanceToRobot, double dimensionOfVoxelData,
                                                      Eigen::Matrix4d transformationInTheEndOfCalculation) {
+    
     int *voxelDataIndex;
     voxelDataIndex = (int *) malloc(sizeof(int) * numberOfPoints * numberOfPoints);
     //set zero voxel and index
@@ -177,6 +185,7 @@ double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int ind
     }
 
 
+    // starts from indexStart back to indexEnd
     int i = 0;
     do {
         //calculate the position of each intensity and create an index in two arrays. First in voxel data, and second save number of intensities.
@@ -192,7 +201,7 @@ double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int ind
                                                                                                          usedGraph->getVertexList()->at(
                                                                                                                  indexStart -
                                                                                                                  i).getIntensities().angle);
-
+        // ignore distance from the center due to sonar noise
         int ignoreDistance = (int) (ignoreDistanceToRobot /
                                     (usedGraph->getVertexList()->at(indexStart - i).getIntensities().range /
                                      ((double) usedGraph->getVertexList()->at(
@@ -246,7 +255,7 @@ double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int ind
     } while (usedGraph->getVertexList()->at(indexStart - i).getTypeOfVertex() != FIRST_ENTRY &&
              indexStart - i != indexEnd);
 
-
+    // Hmm what is this doing?
     double maximumOfVoxelData = 0;
     for (i = 0; i < numberOfPoints * numberOfPoints; i++) {
         if (voxelDataIndex[i] > 0) {
@@ -264,13 +273,17 @@ double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int ind
 
 
 
-edge
-slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double endTimeToAdd,
+edge slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double endTimeToAdd,
                                               std::deque<transformationStamped> &transformationList,
                                               std::mutex &mutexForAccess) {
 
     std::lock_guard<std::mutex> lock(mutexForAccess);
-    //find index of start and end
+
+    // one thing to note is startTimetoAdd and endTimeToAdd are timestamps when a sonar scan line is received
+    // the timestamps from trnasformationList is from the EKF
+
+    // find index of start and end
+    // find the most recent pose before the desired start time. If we overshoot, we backtrack by one.
     int indexOfStart = 0;
     while (transformationList[indexOfStart].timeStamp < startTimetoAdd && transformationList.size() > indexOfStart) {
         indexOfStart++;
@@ -285,17 +298,24 @@ slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double endT
     }
     indexOfEnd--;
 
-    Eigen::Matrix4d transformationTMP = Eigen::Matrix4d::Identity();
+    Eigen::Matrix4d transformationTMP = Eigen::Matrix4d::Identity(); // this will accumulate overall transformation from start to end
 
     if (indexOfStart > 0) {
+        // double interpolationFactor = 1.0 - ((t1 - t) / (t1 - t0)); or 
+        // Time →     t0         t         t1
+        //         [Pose0] ----> ? ----> [Pose1]
+
         double interpolationFactor = 1.0 - ((transformationList[indexOfStart + 1].timeStamp - startTimetoAdd) /
                                             (transformationList[indexOfStart + 1].timeStamp -
                                              transformationList[indexOfStart].timeStamp));
 
+        // startTimeToAdd is now between indexOfStart and indexOfStart + 1
         Eigen::Matrix4d transformationOfEKFStart = transformationList[indexOfStart].transformation;
 
         Eigen::Matrix4d transformationOfEKFEnd = transformationList[indexOfStart + 1].transformation;
-
+                                            
+        // interpolationTwo4DTransformations gives you the interpolated pose between the two transformation
+        // this essentially gives me the transformation from t to t1 and then accumulates that into transformationTMP
         transformationTMP = transformationTMP *
                             generalHelpfulTools::interpolationTwo4DTransformations(transformationOfEKFStart,
                                                                                    transformationOfEKFEnd,
@@ -306,15 +326,16 @@ slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double endT
 
     int i = indexOfStart + 1;
     while (i < indexOfEnd) {
-        Eigen::Matrix4d transformationOfEKFEnd = transformationList[i].transformation;
-        Eigen::Matrix4d transformationOfEKFStart = transformationList[i - 1].transformation;
+        Eigen::Matrix4d transformationOfEKFStart = transformationList[i].transformation;
+        Eigen::Matrix4d transformationOfEKFEnd = transformationList[i + 1].transformation;
 
         transformationTMP = transformationTMP * (transformationOfEKFStart.inverse() * transformationOfEKFEnd);
         i++;
     }
 
+    // same thing as before but now at the end
     if (indexOfEnd > 0) {
-
+        //interpolationFactor = (endTimeToAdd - t_end) / (t_end+1 - t_end)
         double interpolationFactor = ((endTimeToAdd - transformationList[indexOfEnd].timeStamp) /
                                       (transformationList[indexOfEnd + 1].timeStamp -
                                        transformationList[indexOfEnd].timeStamp));
@@ -330,10 +351,11 @@ slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double endT
     }
     Eigen::Vector3d tmpPosition = transformationTMP.block<3, 1>(0, 3);
 
-    //set z pos diff to zero
+    //set z pos diff to zero, assume operating on a flat plane
     tmpPosition[2] = 0;
     Eigen::Quaterniond tmpRot(transformationTMP.block<3, 3>(0, 0));
     Eigen::Vector3d rpyTMP = generalHelpfulTools::getRollPitchYaw(tmpRot);
+
     //set rp on zero only yaw interesting
     tmpRot = generalHelpfulTools::getQuaternionFromRPY(0, 0, rpyTMP[2]);//was +0.00001
     Eigen::Matrix3d positionCovariance = Eigen::Matrix3d::Zero();
@@ -417,6 +439,7 @@ void slamToolsRos::clearSavingsOfPoses(double upToTime, std::deque<transformatio
     }
 }
 
+// used to determine how many scan lines are needed to make a full 360
 bool slamToolsRos::calculateStartAndEndIndexForVoxelCreation(int indexMiddle, int &indexStart, int &indexEnd,
                                                              graphSlamSaveStructure *usedGraph) {
     indexStart = indexMiddle + 1;
@@ -494,20 +517,33 @@ bool slamToolsRos::calculateEndIndexForVoxelCreationByStartIndex(int indexStart,
 }
 
 
-
-bool
-slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
+/*
+* This function finds a loop closure candidate (a place previously visited)
+* Extract voxelized sonar data from two poses
+* reister them scans
+* if the alignment is good, add a loop closure edge
+*/
+bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
                                          softRegistrationClass *scanRegistrationObject,
                                          int dimensionOfVoxelData,
-                                         double ignoreDistanceToRobot, double distanceOfVoxelDataLengthSI, bool useInitialTranslation, int ignoreStartLoopClosure,
+                                         double ignoreDistanceToRobot,
+                                         double distanceOfVoxelDataLengthSI,
+                                         bool useInitialTranslation,
+                                         int ignoreStartLoopClosure,
                                          int ignoreEndLoopClosure,
-                                         double potentialNecessaryForPeak, double maxLoopClosure) {
+                                         double potentialNecessaryForPeak,
+                                         double maxLoopClosure) {
 
-
+    // get the position of the most recent vertex
     Eigen::Vector3d estimatedPosLastPoint = graphSaved->getVertexList()->back().getPositionVertex();
+    // ensure there are enough vertices in the graph to perform loop closure
     if (graphSaved->getVertexList()->size() < ignoreEndLoopClosure) {
         return false;
     }
+
+    // Iterates through all earlier vertices (excluding begin and end)
+    // computes the distance to current pose
+    // chooses the closest node that the robot might be visiting
     std::vector<int> potentialLoopClosureVector;
     int potentialLoopClosure = ignoreStartLoopClosure;
     for (int s = ignoreStartLoopClosure; s < graphSaved->getVertexList()->size() - ignoreEndLoopClosure; s++) {
@@ -519,12 +555,15 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
                      graphSaved->getVertexList()->at(potentialLoopClosure).getPositionVertex().x()), 2) +
                 pow((estimatedPosLastPoint.y() -
                      graphSaved->getVertexList()->at(potentialLoopClosure).getPositionVertex().y()), 2));
+        // update the candidate if 
         if (d2 > d1 && maxLoopClosure > d1) {
             potentialLoopClosure = s;
         }
     }
 
 
+    // Hmm why are we doing this again? because 
+    // reject if the candiate is too far or too early in the process
     potentialLoopClosureVector.push_back(potentialLoopClosure);
 
     double d2 = sqrt(
@@ -557,6 +596,7 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
         slamToolsRos::calculateEndIndexForVoxelCreationByStartIndex(indexStart1,
                                                                     indexEnd1, graphSaved);
 
+        // convert sonar data into 2D intensity arrays
         double maximumVoxel1 = slamToolsRos::createVoxelOfGraphStartEndPoint(voxelData1,
                                                                              indexStart1, indexEnd1,
                                                                              dimensionOfVoxelData,
@@ -572,12 +612,15 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
                                                                              ignoreDistanceToRobot,
                                                                              distanceOfVoxelDataLengthSI,
                                                                              Eigen::Matrix4d::Identity());
+        
+        // normalize
         double overallMax = std::max(maximumVoxel1,maximumVoxel2);
         for(int i = 0 ; i< dimensionOfVoxelData*dimensionOfVoxelData ; i++){
             voxelData1[i] = voxelData1[i]/overallMax;
             voxelData2[i] = voxelData2[i]/overallMax;
         }
 
+        // register the two scans
         Eigen::Matrix4d initialGuessTransformation =
                 (graphSaved->getVertexList()->at(indexStart1).getTransformation().inverse() *
                  graphSaved->getVertexList()->at(indexStart2).getTransformation()).inverse();
@@ -596,6 +639,8 @@ slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
         currentPosDiff.x() = transformationEstimationRobot1_2(0, 3);
         currentPosDiff.y() = transformationEstimationRobot1_2(1, 3);
         currentPosDiff.z() = 0;
+
+        // add the loop closure edge
         graphSaved->addEdge(graphSaved->getVertexList()->back().getKey(), indexStart2, currentPosDiff,
                            currentRotDiff, covarianceEstimation, LOOP_CLOSURE);
         foundLoopClosure = true;

@@ -12,7 +12,9 @@
 //#include "../src/slamTools/slamToolsRos.h"
 //asynchronous EKF with reset of POS correction
 
-
+/*
+* EKF logic interface
+*/
 class ekfClassDVL {
 public:
     ekfClassDVL(rclcpp::Time timeRos) {
@@ -59,11 +61,12 @@ public:
         this->recentPoses.push_back(stateOfEKF);
     }
 
-    void
-    predictionImu(double xAccel, double yAccel, double zAccel, Eigen::Quaterniond currentRotation,Eigen::Vector3d positionIMU, rclcpp::Time timeStamp);
+    void predictionImu(double xAccel, double yAccel, double zAccel, Eigen::Quaterniond currentRotation,Eigen::Vector3d positionIMU, rclcpp::Time timeStamp);
 
 
     void updateDVL(double xVel, double yVel, double zVel, Eigen::Quaterniond rotationOfDVL,Eigen::Vector3d positionDVL, rclcpp::Time timeStamp);
+
+    void updateUSBL(double x, double y, double z, rclcpp::Time timeStamp);
 
     void updateIMU(double roll, double pitch, double xAngularVel, double yAngularVel, double zAngularVel,
                    Eigen::Quaterniond currentRotation, rclcpp::Time timeStamp);
@@ -80,10 +83,13 @@ public:
     Eigen::VectorXd innovationStateDiff(Eigen::VectorXd z, Eigen::MatrixXd H, Eigen::VectorXd currentStateBeforeUpdate);
 
 private:
+    // internal pose object to store an estimate
     pose stateOfEKF;
     //std::deque<edge> lastPositionDifferences;
     std::deque<pose> recentPoses;
-    Eigen::MatrixXd processNoise, measurementNoiseDepth, measurementNoiseDVL, measurementImuVelocity, measurementNoiseSlam;
+    
+    // noise matrix
+    Eigen::MatrixXd processNoise, measurementNoiseDepth, measurementNoiseDVL, measurementImuVelocity, measurementNoiseSlam, measurementNoiseUSBL;
     rclcpp::Time lastUpdateTime;
 };
 

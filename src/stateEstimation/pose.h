@@ -9,6 +9,10 @@
 #include <Eigen/StdVector>
 #include "rclcpp/rclcpp.hpp"
 
+/*
+* The class acts as a container for EKF state and is used to read/write internal estimates.
+* It contains a 12d vector contains the pose of the robot
+*/
 class pose {//pose is in NED
 public:
     Eigen::Vector3f position;
@@ -19,6 +23,12 @@ public:
     rclcpp::Time timeLastPrediction;
 
     Eigen::VectorXd getStatexyzvxvyvzrpyrvelpvelyvel() {
+        /* state is a 12d vector
+        * position (x, y, z)
+        * velocity (vx, vy, vz)
+        * rotation (roll, pitch, yaw)
+        * angular velocity (rvel, pvel, yvel)
+        */
         Eigen::VectorXd state = Eigen::VectorXd::Zero(12);
         state(0) = this->position.x();
         state(1) = this->position.y();
