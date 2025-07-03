@@ -237,14 +237,15 @@ private:
             return;
         }
 
-        // calculate the pose difference
+        // calculate the pose difference for an edge
         edge differenceOfEdge = slamToolsRos::calculatePoseDiffByTimeDepOnEKF(
                 this->graphSaved->getVertexList()->back().getTimeStamp(), rclcpp::Time(msg->header.stamp).seconds(),
                 this->ekfTransformationList, this->stateEstimationMutex);
         slamToolsRos::clearSavingsOfPoses(this->graphSaved->getVertexList()->back().getTimeStamp() - 2.0,
                                           this->ekfTransformationList, this->currentPositionGTDeque,
                                           this->stateEstimationMutex);
-
+        
+        // get the last vertex and apply the recently calculated transformation -> pose of the new scan line
         Eigen::Matrix4d tmpTransformation = this->graphSaved->getVertexList()->back().getTransformation();
         tmpTransformation = tmpTransformation * differenceOfEdge.getTransformation();
         Eigen::Vector3d pos = tmpTransformation.block<3, 1>(0, 3);
@@ -271,13 +272,15 @@ private:
         
         // check if enough rotation has happened to consider this a keyframe
         double angleDiff = slamToolsRos::angleBetweenLastKeyframeAndNow(this->graphSaved);
+        
         // best would be scan matching between this angle and transformation based last angle( i think this is currently done)
         if (abs(angleDiff) > 2 * M_PI / this->number_of_loop_closures_per_rotation) {
 
-
+            // a node is considered a keyframe if it is far enough from the last keyframe
+            // given the specification of number_of_loop_closures_per_rotation
             this->graphSaved->getVertexList()->back().setTypeOfVertex(INTENSITY_SAVED_AND_KEYFRAME);
 
-            // Hmm?
+            // we want to wait until we have enough coverage before attempting loop closures during the first scan
             if (firstCompleteSonarScan) {
                 numberOfTimesFirstScan++;
                 if (numberOfTimesFirstScan > 2 * this->number_of_loop_closures_per_rotation - 1) {
@@ -290,9 +293,15 @@ private:
 
             // Loop closure process
             int indexStart1, indexEnd1, indexStart2, indexEnd2;
+
+            // go back in time 5 nodes and build a voxel
+            // I do not like this
+            // @TODO about the -5
             slamToolsRos::calculateStartAndEndIndexForVoxelCreation(
                     this->graphSaved->getVertexList()->back().getKey() - 5, indexStart1, indexEnd1, this->graphSaved);
             indexStart2 = indexEnd1;
+
+            //
             slamToolsRos::calculateEndIndexForVoxelCreationByStartIndex(indexStart2, indexEnd2, this->graphSaved);
 
 
@@ -305,7 +314,13 @@ private:
             this->initialGuessTransformation =
                     (this->graphSaved->getVertexList()->at(indexStart2).getTransformation().inverse() *
                      this->graphSaved->getVertexList()->at(indexStart1).getTransformation());
-
+            
+            // @TODO
+            // I don't like this next line
+            // we assume that the robot stays level the whole time that the rotational matrix only contains rotation around Z axis
+            // the ideal way to to calculate rpy from the rotational matrix and then extract yaw like this
+            // Eigen::Vector3d rpy = generalHelpfulTools::getRollPitchYaw(this->initialGuessTransformation);
+            // double initialGuessAngle = rpy(2);
             double initialGuessAngle = std::atan2(this->initialGuessTransformation(1, 0),
                                                   this->initialGuessTransformation(0, 0));
 
@@ -364,12 +379,13 @@ private:
 
 
 
-            //only if angle diff is smaller than 40 degreece its ok
+            // only if angle diff is smaller than 40 degreece its ok
             if (abs(differenceAngleBeforeAfter) < 40.0 / 180.0 * M_PI) {
                 //inverse the transformation because we want the robot transformation, not the scan transformation
                 Eigen::Matrix4d transformationEstimationRobot1_2 = this->currentEstimatedTransformation;
                 Eigen::Quaterniond qTMP(transformationEstimationRobot1_2.block<3, 3>(0, 0));
 
+                // now you add an edge between the two found node for loop closure
                 graphSaved->addEdge(indexStart2,
                                     indexStart1,
                                     transformationEstimationRobot1_2.block<3, 1>(0, 3), qTMP,
@@ -382,11 +398,13 @@ private:
             std::cout << "loopClosure: " << std::endl;
 
             ////////////// look for loop closure  //////////////
+            // @TODO I guess this is for global loop closure?
             slamToolsRos::loopDetectionByClosestPath(this->graphSaved, this->scanRegistrationObject,
                                                      this->registration_number_of_pixels_dimension, this->distance_ignored_around_robot,
                                                      this->registration_size_of_scan,
                                                      true, 250, 500,
                                                      this->registration_threshold_translation, this->maximum_loopclosure_distance);
+
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
             double timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
             std::cout << "Loop closure computation time: " << timeToCalculate << std::endl;
@@ -401,6 +419,8 @@ private:
 
 
         }
+
+        //
         slamToolsRos::visualizeCurrentPoseGraph(this->graphSaved, this->publisherSonarEcho,
                                                 this->publisherMarkerArray, this->sigmaScaling,
                                                 this->publisherPoseSLAM, this->publisherMarkerArrayLoopClosures,
