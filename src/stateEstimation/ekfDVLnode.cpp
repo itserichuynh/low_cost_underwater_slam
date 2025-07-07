@@ -96,9 +96,9 @@ private:
 
     void imuCallbackHelper(const sensor_msgs::msg::Imu::SharedPtr msg) {
 
-        // Rotate 180 around x-axis
+        // Rotate 90 CCW
         Eigen::Matrix3d transformationX180DegreeRotationMatrix;
-        Eigen::AngleAxisd rotation_vector2(0.0 / 180.0 * 3.14159, Eigen::Vector3d(1, 0, 0));
+        Eigen::AngleAxisd rotation_vector2(90.0 / 180.0 * 3.14159, Eigen::Vector3d(1, 0, 0));
 
         transformationX180DegreeRotationMatrix = rotation_vector2.toRotationMatrix();
 
@@ -206,8 +206,20 @@ private:
         this->updateEKFMutex.unlock();
     }
 
-    void USBLCallback(usbl_seatrac_msgs::msg::PositionStamped::SharedPtr msg) {
+    void usblCallbackHelper(const usbl_seatrac_msgs::msg::PositionStamped::SharedPtr msg) {
+        if (!msg->pos_valid) {
+            //if we don't know anything, the position of the ekf should just go to 0. But should not happen anyway.
+            this->currentEkf.updateUSBL(0, 0, 0, rclcpp::Time(msg->timestamp));
+        } else {
+            this->currentEkf.updateUSBL(msg->x, msg->y, msg->z, rclcpp::Time(msg->timestamp));
+        }
         return;
+    }
+
+    void USBLCallback(const usbl_seatrac_msgs::msg::PositionStamped::SharedPtr msg) {
+        this->updateEKFMutex.lock();
+        this->usblCallbackHelper(msg);
+        this->updateEKFMutex.unlock();
     }
 
     void depthSensorBaroSensorTubeCallback(const sensor_msgs::msg::FluidPressure::SharedPtr msg) {

@@ -87,19 +87,19 @@ public:
                 std::bind(&rosClassSlam::scanCallback,
                           this, std::placeholders::_1), sub2_opt);
 
-        this->publisherSonarEcho = this->create_publisher<nav_msgs::msg::Path>(
+        this->publisherPositionOverTime = this->create_publisher<nav_msgs::msg::Path>(
                 "positionOverTime", qos);
 
         this->publisherEKF = this->create_publisher<nav_msgs::msg::Path>(
                 "positionOverTimeGT", qos);
 
-        this->publisherMarkerArray = this->create_publisher<visualization_msgs::msg::MarkerArray>(
+        this->publisherMarkerArrayCovariance = this->create_publisher<visualization_msgs::msg::MarkerArray>(
                 "covariance", qos);
         this->publisherMarkerArrayLoopClosures = this->create_publisher<visualization_msgs::msg::MarkerArray>(
                 "loopClosures", qos);
         this->publisherOccupancyMap = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
                 "occupancyHilbertMap", qos);
-        this->publisherPoseSLAM = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        this->publisherEndPose = this->create_publisher<geometry_msgs::msg::PoseStamped>(
                 "slamEndPose", qos);
 
         std::chrono::duration<double> my_timer_duration = std::chrono::duration<double>(5.0);
@@ -141,7 +141,7 @@ private:
     rclcpp::Subscription<ping360_sonar_msgs::msg::SonarEcho>::SharedPtr subscriberIntensitySonar;
 
 
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisherPoseSLAM;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr publisherEndPose;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr publisherOccupancyMap;
 
     rclcpp::CallbackGroup::SharedPtr callback_group_subscriber1_;
@@ -153,9 +153,9 @@ private:
     std::mutex groundTruthMutex;
     std::mutex graphSlamMutex;
     //GraphSlam things
-    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr publisherSonarEcho;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr publisherPositionOverTime;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr publisherEKF;
-    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisherMarkerArray;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisherMarkerArrayCovariance;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr publisherMarkerArrayLoopClosures;
 
 
@@ -269,7 +269,7 @@ private:
                                   differenceOfEdge.getPositionDifference(), differenceOfEdge.getRotationDifference(),
                                   covarianceMatrix, INTEGRATED_POSE);
 
-        
+        // check local loop closure
         // check if enough rotation has happened to consider this a keyframe
         double angleDiff = slamToolsRos::angleBetweenLastKeyframeAndNow(this->graphSaved);
         
@@ -278,6 +278,7 @@ private:
 
             // a node is considered a keyframe if it is far enough from the last keyframe
             // given the specification of number_of_loop_closures_per_rotation
+            // this is for local loop closure
             this->graphSaved->getVertexList()->back().setTypeOfVertex(INTENSITY_SAVED_AND_KEYFRAME);
 
             // we want to wait until we have enough coverage before attempting loop closures during the first scan
@@ -399,11 +400,13 @@ private:
 
             ////////////// look for loop closure  //////////////
             // @TODO I guess this is for global loop closure?
-            slamToolsRos::loopDetectionByClosestPath(this->graphSaved, this->scanRegistrationObject,
+            bool foundGlobalLoopClosure = slamToolsRos::loopDetectionByClosestPath(this->graphSaved, this->scanRegistrationObject,
                                                      this->registration_number_of_pixels_dimension, this->distance_ignored_around_robot,
                                                      this->registration_size_of_scan,
                                                      true, 250, 500,
                                                      this->registration_threshold_translation, this->maximum_loopclosure_distance);
+            
+            std::cout << "Found a global loop closure" << std::endl;
 
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
             double timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
@@ -411,23 +414,24 @@ private:
 
             this->graphSaved->isam2OptimizeGraph(true, 2);
 
-//            slamToolsRos::visualizeCurrentPoseGraph(this->graphSaved, this->publisherSonarEcho,
-//                                                    this->publisherMarkerArray, this->sigmaScaling,
-//                                                    this->publisherPoseSLAM, this->publisherMarkerArrayLoopClosures,
+//            slamToolsRos::visualizeCurrentPoseGraph(this->graphSaved, this->publisherPositionOverTime,
+//                                                    this->publisherMarkerArrayCovariance, this->sigmaScaling,
+//                                                    this->publisherEndPose, this->publisherMarkerArrayLoopClosures,
 //                                                    this->publisherEKF);
             std::cout << "next: " << std::endl;
 
 
         }
 
-        //
-        slamToolsRos::visualizeCurrentPoseGraph(this->graphSaved, this->publisherSonarEcho,
-                                                this->publisherMarkerArray, this->sigmaScaling,
-                                                this->publisherPoseSLAM, this->publisherMarkerArrayLoopClosures,
+        // @TODO
+        slamToolsRos::visualizeCurrentPoseGraph(this->graphSaved, this->publisherPositionOverTime,
+                                                this->publisherMarkerArrayCovariance, this->sigmaScaling,
+                                                this->publisherEndPose, this->publisherMarkerArrayLoopClosures,
                                                 this->publisherEKF);
 
     }
 
+    // this produces a list of transformations wrt initial pos
     void stateEstimationCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg) {
 
         std::lock_guard<std::mutex> lock(this->stateEstimationMutex);
@@ -521,9 +525,13 @@ public:
         std::vector<intensityValues> dataSet;
         double maximumIntensity = slamToolsRos::getDatasetFromGraphForMap(dataSet, this->graphSaved,
                                                                           this->graphSlamMutex);
-
+        
+        // @TODO
+        //voxeldata is incremented whenever we add new data into mapData to later normalize mapData
+        // hence, I should come up with better name
         int *voxelDataIndex;
         voxelDataIndex = (int *) malloc(sizeof(int) * this->map_size * this->map_size);
+
         double *mapData;
         mapData = (double *) malloc(sizeof(double) * this->map_size * this->map_size);
         //set zero voxel and index
@@ -532,7 +540,7 @@ public:
             mapData[i] = 0;
         }
 
-
+        // iterate thru all the vertexes
         for (int currentPosition = 0; currentPosition < dataSet.size(); currentPosition++) {
             // calculate the position of each intensity and create an index in two arrays.
             // First in voxel data, and second save number of intensities.
@@ -544,24 +552,31 @@ public:
                     dataSet[currentPosition].transformation;
             Eigen::Matrix4d rotationOfSonarAngleMatrix = generalHelpfulTools::getTransformationMatrixFromRPY(0, 0,
                                                                                                              dataSet[currentPosition].intensity.angle);
-
+            
+            // determine how many index we have to ignore
             int ignoreDistance = (int) (this->distance_ignored_around_robot / (dataSet[currentPosition].intensity.range /
                                                                     ((double) dataSet[currentPosition].intensity.intensities.size())));
 
-
+            
+            // iterate thru all the intensities and ignore the ignored area
             for (int j = ignoreDistance; j < dataSet[currentPosition].intensity.intensities.size(); j++) {
+                // find the distance in meters at this index
                 double distanceOfIntensity =
-                        j / ((double) dataSet[currentPosition].intensity.intensities.size()) *
+                        (j / ((double) dataSet[currentPosition].intensity.intensities.size())) *
                         ((double) dataSet[currentPosition].intensity.range);
 
-                int incrementOfScan = dataSet[currentPosition].intensity.increment;
+                int incrementOfScan = dataSet[currentPosition].intensity.increment; // angle step size
+
+                // @TODO I dont really understand what l is
+                // we smear the scan line for better approximate of the true sonar beam width and improve map coverage
+                // this is due to the assumption that one scan line never truly scan only one angle section 
                 for (int l = -incrementOfScan - 5; l <= incrementOfScan + 5; l++) {
                     Eigen::Vector4d positionOfIntensity(
                             distanceOfIntensity,
                             0,
                             0,
                             1);
-                    double rotationOfPoint = l / 400.0;
+                    double rotationOfPoint = (l / 400.0) * 2.0 * M_PI;
                     Eigen::Matrix4d rotationForBetterView = generalHelpfulTools::getTransformationMatrixFromRPY(0,
                                                                                                                 0,
                                                                                                                 rotationOfPoint);

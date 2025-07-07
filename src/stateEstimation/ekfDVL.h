@@ -55,6 +55,12 @@ public:
         this->measurementImuVelocity(11, 11) = 0.1;//vy
 
 
+        // @TODO I dont know what to set this to just yet...
+        this->measurementNoiseUSBL = Eigen::MatrixXd::Identity(12, 12);
+        this->measurementNoiseUSBL(0, 0) = 0.25;//x in meters
+        this->measurementNoiseUSBL(1, 1) = 0.25;//y in meters
+
+
 
         this->stateOfEKF.covariance = processNoise;
 

@@ -154,7 +154,7 @@ ekfClassDVL::updateDVL(double xVel, double yVel, double zVel, Eigen::Quaterniond
     this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
 }
 
-void ekfClassDVL::updateUSBL(double x, double y, double z, rclcpp::Time timeStampp) {
+void ekfClassDVL::updateUSBL(double xPos, double yPos, double zPos, rclcpp::Time timeStampp) {
     //for saving the current EKF pose difference in
 
     // Eigen::VectorXd currentStateBeforeUpdate = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
@@ -172,21 +172,22 @@ void ekfClassDVL::updateUSBL(double x, double y, double z, rclcpp::Time timeStam
     // // velocityAngular has to be changed to correct rotation(world velocityAngular)
     // Eigen::Vector3d velocityLocalLinear = this->getRotationVector() * velocityBodyLinear;
 
-    // Eigen::VectorXd innovation;
-    // Eigen::VectorXd z = Eigen::VectorXd::Zero(12);
-    // z(3) = velocityLocalLinear(0);
-    // z(4) = velocityLocalLinear(1);
-    // z(5) = velocityLocalLinear(2);// removed because z is not important. velocityLocalLinear(2);
-    // Eigen::MatrixXd H = Eigen::MatrixXd::Zero(12, 12);
-    // H(3, 3) = 1;
-    // H(4, 4) = 1;
-    // H(5, 5) = 1;
-    // innovation = z - H * this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();//also y
-    // Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementNoiseDVL;
-    // Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
-    // Eigen::VectorXd newState = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel() + K * innovation;
-    // this->stateOfEKF.applyState(newState);
-    // this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
+    Eigen::Vector3d position(xPos, yPos, zPos);
+    Eigen::VectorXd innovation;
+    Eigen::VectorXd z = Eigen::VectorXd::Zero(12); // matrix to hold measurements
+    z(0) = position(0);
+    z(1) = position(1);
+    //z(2) = position(2);// removed because our usbl can only give x and y info
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(12, 12);
+    H(0, 0) = 1;
+    H(1, 1) = 1;
+    // H(2, 2) = 1;
+    innovation = z - H * this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();//also y
+    Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementNoiseUSBL;
+    Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
+    Eigen::VectorXd newState = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel() + K * innovation;
+    this->stateOfEKF.applyState(newState);
+    this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
 }
 
 void

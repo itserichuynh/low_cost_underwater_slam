@@ -7,9 +7,9 @@
 
 void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
                                              rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr &publisherPath,
-                                             rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr &publisherMarkerArray,
+                                             rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr &publisherMarkerArrayCovariance,
                                              double sigmaScaling,
-                                             rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr &publisherPoseSlam,
+                                             rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr &publisherEndPose,
                                              rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr &publisherLoopClosures,
                                              rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr &publisherPathGT) {
 
@@ -32,7 +32,9 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
         pos.pose.orientation.w = vertexElement.getRotationVertex().w();
 
         posOverTime.poses.push_back(pos);
+        
 
+        // we don't have this unfortunately
         auto gtTF = vertexElement.getGroundTruthTransformation();
         Eigen::Matrix3d tmpRotMatrix = gtTF.block<3, 3>(0, 0);
         Eigen::Quaterniond tmpRot(tmpRotMatrix);
@@ -48,6 +50,7 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
 
     }
 
+    // create marker array for covariance
     visualization_msgs::msg::MarkerArray markerArray;
     int k = 0;
     for (int i = 0; i < graphSaved->getVertexList()->size(); i = i + 100) {//skip the first pointCloud
@@ -98,10 +101,11 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
         markerArray.markers.push_back(currentMarker);
 
     }
-    publisherMarkerArray->publish(markerArray);
+    publisherMarkerArrayCovariance->publish(markerArray);
     publisherPath->publish(posOverTime);
     publisherPathGT->publish(posOverTimeGT);
 
+    // end/current pose publish
     geometry_msgs::msg::PoseStamped pos;
     pos.header.stamp = rclcpp::Time(graphSaved->getVertexList()->back().getTimeStamp());
     pos.header.frame_id = "map_ned";
@@ -113,9 +117,7 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
     pos.pose.orientation.z = graphSaved->getVertexList()->back().getRotationVertex().z();
     pos.pose.orientation.w = graphSaved->getVertexList()->back().getRotationVertex().w();
 
-    publisherPoseSlam->publish(pos);
-
-
+    publisherEndPose->publish(pos);
 
 
     //create marker for evey loop closure
@@ -222,7 +224,7 @@ double slamToolsRos::createVoxelOfGraphStartEndPoint(double voxelData[], int ind
                         0,
                         0,
                         1);
-                double rotationOfPoint = l / 400.0;
+                double rotationOfPoint = (l / 400.0) * 2.0 * M_PI;
                 Eigen::Matrix4d rotationForBetterView = generalHelpfulTools::getTransformationMatrixFromRPY(0, 0,
                                                                                                             rotationOfPoint);
                 positionOfIntensity = rotationForBetterView * positionOfIntensity;
@@ -328,6 +330,10 @@ edge slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double
     while (i < indexOfEnd) {
         Eigen::Matrix4d transformationOfEKFStart = transformationList[i].transformation;
         Eigen::Matrix4d transformationOfEKFEnd = transformationList[i + 1].transformation;
+
+        // Looks like a mistake in the code
+        // Eigen::Matrix4d transformationOfEKFEnd = transformationList[i].transformation;
+        // Eigen::Matrix4d transformationOfEKFStart = transformationList[i - 1].transformation;
 
         transformationTMP = transformationTMP * (transformationOfEKFStart.inverse() * transformationOfEKFEnd);
         i++;
@@ -520,7 +526,7 @@ bool slamToolsRos::calculateEndIndexForVoxelCreationByStartIndex(int indexStart,
 /*
 * This function finds a loop closure candidate (a place previously visited)
 * Extract voxelized sonar data from two poses
-* reister them scans
+* register the scans
 * if the alignment is good, add a loop closure edge
 */
 bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved,
@@ -543,7 +549,7 @@ bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved
 
     // Iterates through all earlier vertices (excluding begin and end)
     // computes the distance to current pose
-    // chooses the closest node that the robot might be visiting
+    // chooses the closest node to the last node in the pose graph
     std::vector<int> potentialLoopClosureVector;
     int potentialLoopClosure = ignoreStartLoopClosure;
     for (int s = ignoreStartLoopClosure; s < graphSaved->getVertexList()->size() - ignoreEndLoopClosure; s++) {
@@ -556,7 +562,8 @@ bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved
                 pow((estimatedPosLastPoint.y() -
                      graphSaved->getVertexList()->at(potentialLoopClosure).getPositionVertex().y()), 2));
         // update the candidate if 
-        if (d2 > d1 && maxLoopClosure > d1) {
+        // as long as d1 is both smaller than d2 and maxClosureLoop?
+        if (d1 < d2 && d1 < maxLoopClosure) {
             potentialLoopClosure = s;
         }
     }
@@ -578,7 +585,7 @@ bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved
 
     int loopclosureNumber = 0;
     bool foundLoopClosure = false;
-    for (const auto &potentialKey: potentialLoopClosureVector) {
+    for (const auto &potentialKey: potentialLoopClosureVector) { // there's only one anyway 
 
         //create voxel
         double *voxelData1;
@@ -634,14 +641,14 @@ bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved
 
         //inverse the transformation because we want the robot transformation, not the scan transformation
         Eigen::Matrix4d transformationEstimationRobot1_2 = currentTransformation.inverse();
-        Eigen::Vector3d currentPosDiff;
+        // Eigen::Vector3d currentPosDiff;
         Eigen::Quaterniond currentRotDiff(transformationEstimationRobot1_2.block<3, 3>(0, 0));
-        currentPosDiff.x() = transformationEstimationRobot1_2(0, 3);
-        currentPosDiff.y() = transformationEstimationRobot1_2(1, 3);
-        currentPosDiff.z() = 0;
+        // currentPosDiff.x() = transformationEstimationRobot1_2(0, 3);
+        // currentPosDiff.y() = transformationEstimationRobot1_2(1, 3);
+        // currentPosDiff.z() = 0;
 
         // add the loop closure edge
-        graphSaved->addEdge(graphSaved->getVertexList()->back().getKey(), indexStart2, currentPosDiff,
+        graphSaved->addEdge(graphSaved->getVertexList()->back().getKey(), indexStart2, transformationEstimationRobot1_2.block<3, 1>(0, 3),
                            currentRotDiff, covarianceEstimation, LOOP_CLOSURE);
         foundLoopClosure = true;
         loopclosureNumber++;
