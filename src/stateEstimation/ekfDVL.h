@@ -60,6 +60,10 @@ public:
         this->measurementNoiseUSBL(0, 0) = 0.25;//x in meters
         this->measurementNoiseUSBL(1, 1) = 0.25;//y in meters
 
+        // @TODO I dont know what to set this to just yet...
+        this->measurementMagnetometer = Eigen::MatrixXd::Identity(12, 12);
+        this->measurementMagnetometer(8, 8) = 100.0; //yaw
+
 
 
         this->stateOfEKF.covariance = processNoise;
@@ -76,6 +80,8 @@ public:
 
     void updateIMU(double roll, double pitch, double xAngularVel, double yAngularVel, double zAngularVel,
                    Eigen::Quaterniond currentRotation, rclcpp::Time timeStamp);
+    
+    void updateMagnetometer(double x_mag, double y_mag, double z_mag, rclcpp::Time timeStamp);
 
     void updateHeight(double depth, rclcpp::Time timeStamp);
 
@@ -95,7 +101,7 @@ private:
     std::deque<pose> recentPoses;
     
     // noise matrix
-    Eigen::MatrixXd processNoise, measurementNoiseDepth, measurementNoiseDVL, measurementImuVelocity, measurementNoiseSlam, measurementNoiseUSBL;
+    Eigen::MatrixXd processNoise, measurementNoiseDepth, measurementNoiseDVL, measurementImuVelocity, measurementNoiseSlam, measurementNoiseUSBL, measurementMagnetometer;
     rclcpp::Time lastUpdateTime;
 };
 

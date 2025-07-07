@@ -11,6 +11,7 @@
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 
 #include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/magnetic_field.hpp"
 #include "sensor_msgs/msg/fluid_pressure.hpp"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 
@@ -49,8 +50,12 @@ public:
                                             this->get_parameter("zPositionDVL").as_double());
 
 
-        this->subscriberIMU = this->create_subscription<sensor_msgs::msg::Imu>("/imu/data", qos,
+        this->subscriberIMU = this->create_subscription<sensor_msgs::msg::Imu>("mavros/imu/data", qos,
                                                                                std::bind(&RosClassEKF::imuCallback,
+                                                                                         this, std::placeholders::_1));
+
+        this->subscriberMagnetometer = this->create_subscription<sensor_msgs::msg::MagneticField>("mavros/imu/mag", qos,
+                                                                               std::bind(&RosClassEKF::magnetometerCallback,
                                                                                          this, std::placeholders::_1));
 
         this->subscriberDVL = this->create_subscription<waterlinked_a50::msg::TransducerReportStamped>(
@@ -59,7 +64,7 @@ public:
         this->subscriberUSBL = this->create_subscription<usbl_seatrac_msgs::msg::PositionStamped>("/usbl/data", qos, std::bind(&RosClassEKF::USBLCallback, this, std::placeholders::_1));
 
         this->subscriberDepthSensorBaroSensorTube = this->create_subscription<sensor_msgs::msg::FluidPressure>(
-                "/pressure", qos,
+                "/pressure/data", qos,
                 std::bind(
                         &RosClassEKF::depthSensorBaroSensorTubeCallback,
                         this,
@@ -81,6 +86,8 @@ private:
 
     rclcpp::Subscription<usbl_seatrac_msgs::msg::PositionStamped>::SharedPtr subscriberUSBL;
 
+    rclcpp::Subscription<sensor_msgs::msg::MagneticField>::SharedPtr subscriberMagnetometer;
+
     rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr subscriberDepthSensorBaroSensorTube;
     rclcpp::Subscription<waterlinked_a50::msg::TransducerReportStamped>::SharedPtr subscriberDVL;
 
@@ -97,8 +104,10 @@ private:
     void imuCallbackHelper(const sensor_msgs::msg::Imu::SharedPtr msg) {
 
         // Rotate 90 CCW
+        // @TODO Do I need this at all or is it already handled in mavros?
+        // Well looks like mavros has this configured already from all the parameters! So we dont need to do this anymore
         Eigen::Matrix3d transformationX180DegreeRotationMatrix;
-        Eigen::AngleAxisd rotation_vector2(90.0 / 180.0 * 3.14159, Eigen::Vector3d(1, 0, 0));
+        Eigen::AngleAxisd rotation_vector2(0.0 / 180.0 * 3.14159, Eigen::Vector3d(1, 0, 0));
 
         transformationX180DegreeRotationMatrix = rotation_vector2.toRotationMatrix();
 
@@ -188,6 +197,16 @@ private:
         this->updateEKFMutex.unlock();
     }
 
+    void magnetometerCallbackHelper(const sensor_msgs::msg::MagneticField msg) {
+        this->currentEkf.updateMagnetometer(msg.magnetic_field.x, msg.magnetic_field.y, msg.magnetic_field.z, rclcpp::Time(msg->timestamp));
+    }
+
+    void magnetometerCallback(const sensor_msgs::msg::MagneticField msg) {
+        this->updateEKFMutex.lock();
+        this->magnetometerCallbackHelper(msg);
+        this->updateEKFMutex.unlock();
+    }
+
     void DVLCallbackDVLHelper(const waterlinked_a50::msg::TransducerReportStamped::SharedPtr msg) {
         if (!msg->report.velocity_valid || msg->report.status != 0) {
             //if we don't know anything, the speed of the ekf should just go to 0, else the IMU gives direction. But should not happen anyway.
@@ -209,9 +228,9 @@ private:
     void usblCallbackHelper(const usbl_seatrac_msgs::msg::PositionStamped::SharedPtr msg) {
         if (!msg->pos_valid) {
             //if we don't know anything, the position of the ekf should just go to 0. But should not happen anyway.
-            this->currentEkf.updateUSBL(0, 0, 0, rclcpp::Time(msg->timestamp));
+            this->currentEkf.updateUSBL(0, 0, 0, msg->header.stamp);
         } else {
-            this->currentEkf.updateUSBL(msg->x, msg->y, msg->z, rclcpp::Time(msg->timestamp));
+            this->currentEkf.updateUSBL(msg->x, msg->y, msg->z, msg->header.stamp);
         }
         return;
     }

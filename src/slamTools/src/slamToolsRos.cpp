@@ -362,7 +362,7 @@ edge slamToolsRos::calculatePoseDiffByTimeDepOnEKF(double startTimetoAdd, double
     Eigen::Quaterniond tmpRot(transformationTMP.block<3, 3>(0, 0));
     Eigen::Vector3d rpyTMP = generalHelpfulTools::getRollPitchYaw(tmpRot);
 
-    //set rp on zero only yaw interesting
+    //set rp on zero only yaw is needed since we are on a flat plane
     tmpRot = generalHelpfulTools::getQuaternionFromRPY(0, 0, rpyTMP[2]);//was +0.00001
     Eigen::Matrix3d positionCovariance = Eigen::Matrix3d::Zero();
     edge tmpEdge(0, 0, tmpPosition, tmpRot, positionCovariance, 3,

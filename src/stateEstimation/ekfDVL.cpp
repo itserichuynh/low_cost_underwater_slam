@@ -21,11 +21,15 @@ void ekfClassDVL::predictionImu(double xAccel, double yAccel, double zAccel, Eig
     Eigen::Vector3d angularVelocity(currentStateBeforeUpdate[9], currentStateBeforeUpdate[10],
                                     currentStateBeforeUpdate[11]);
     
+
+    // @TODO I dont know if i should add or subtract 9.81 here bc from imu topic, linear acc in z is +9.81
+    // I decided to go with negative since our reading from imu is +9.81
+
     // Compensate for gravity and centrifugal acceleration
     // + gravity to cancel it out
     // - w x (w x r): if imu is not at the center, it feels extra force when the robot rotates
     Eigen::Vector3d bodyAccelerationReal = (bodyAcceleration +
-                                            this->getRotationVector().inverse() * Eigen::Vector3d(0, 0, 9.81) -
+                                            this->getRotationVector().inverse() * Eigen::Vector3d(0, 0, -9.81) -
                                             angularVelocity.cross(angularVelocity.cross(positionIMU)));
 
 
@@ -58,7 +62,7 @@ void ekfClassDVL::predictionImu(double xAccel, double yAccel, double zAccel, Eig
     inputMatrix(4) = localAcceleration(1) * timeDiff;
     inputMatrix(5) = localAcceleration(2) * timeDiff;
 
-    // + inputMatrix is to update the velocity
+    // + inputMatrix is to update linear velocity
     state = A * state + inputMatrix;
     //look for wrap around
     if (state(8) > M_PI) {
@@ -109,6 +113,42 @@ void ekfClassDVL::updateIMU(double roll, double pitch, double xAngularVel, doubl
     }
     innovation = this->innovationStateDiff(z, H, currentStateBeforeUpdate);//also called y
     Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementImuVelocity;
+    Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
+    Eigen::VectorXd newState = currentStateBeforeUpdate + K * innovation;
+
+    this->stateOfEKF.applyState(newState);
+    this->stateOfEKF.covariance = (Eigen::MatrixXd::Identity(12, 12) - K * H) * this->stateOfEKF.covariance;
+
+}
+
+void ekfClassDVL::updateMagnetometer(double x_mag, double y_mag, double z_mag, rclcpp::Time timeStamp) {
+    //for saving the current EKF pose difference in
+    Eigen::VectorXd currentStateBeforeUpdate = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
+
+    // Eigen::VectorXd innovation;
+    // //change from system to body system
+    // Eigen::Vector3d velocityBodyAngular(xAngularVel, yAngularVel, zAngularVel);
+    // // velocityAngular has to be changed to correct rotation(world velocityAngular)
+    // Eigen::Vector3d velocityLocalAngular = this->getRotationVectorWithoutYaw() * velocityBodyAngular;
+
+    // Compute yaw from magnetometer
+    double yaw_measured = std::atan2(y_mag, x_mag);
+
+    Eigen::VectorXd z = Eigen::VectorXd::Zero(12);
+    z(8) = yaw_measured;
+
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(12, 12);
+    H(8, 8) = 1;
+
+    // // make sure roll angles arent passed the +- pi boundary
+    // if (roll > 0 && currentStateBeforeUpdate[6] < 0) {
+    //     currentStateBeforeUpdate[6] = currentStateBeforeUpdate[6] + M_PI * 2;
+    // }
+    // if (roll < 0 && currentStateBeforeUpdate[6] > 0) {
+    //     currentStateBeforeUpdate[6] = currentStateBeforeUpdate[6] - M_PI * 2;
+    // }
+    innovation = this->innovationStateDiff(z, H, currentStateBeforeUpdate);//also called y
+    Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementMagnetometer;
     Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
     Eigen::VectorXd newState = currentStateBeforeUpdate + K * innovation;
 
