@@ -74,8 +74,6 @@ public:
                 "publisherPoseEkf", qos);
         this->publisherTwistEkf = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>(
                 "publisherTwistEkf", qos);
-
-
     }
 
 private:
@@ -198,7 +196,7 @@ private:
     }
 
     void magnetometerCallbackHelper(const sensor_msgs::msg::MagneticField msg) {
-        this->currentEkf.updateMagnetometer(msg.magnetic_field.x, msg.magnetic_field.y, msg.magnetic_field.z, rclcpp::Time(msg->timestamp));
+        this->currentEkf.updateMagnetometer(msg.magnetic_field.x, msg.magnetic_field.y, msg.magnetic_field.z, msg.header.stamp);
     }
 
     void magnetometerCallback(const sensor_msgs::msg::MagneticField msg) {

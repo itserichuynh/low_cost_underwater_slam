@@ -103,6 +103,9 @@ private:
     // noise matrix
     Eigen::MatrixXd processNoise, measurementNoiseDepth, measurementNoiseDVL, measurementImuVelocity, measurementNoiseSlam, measurementNoiseUSBL, measurementMagnetometer;
     rclcpp::Time lastUpdateTime;
+
+    bool firstMagMeasurement = true;
+    double firstYawFromMag;
 };
 
 

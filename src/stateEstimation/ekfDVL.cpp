@@ -125,14 +125,23 @@ void ekfClassDVL::updateMagnetometer(double x_mag, double y_mag, double z_mag, r
     //for saving the current EKF pose difference in
     Eigen::VectorXd currentStateBeforeUpdate = this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
 
-    // Eigen::VectorXd innovation;
+    if (this->firstMagMeasurement) {
+        this->firstYawFromMag = std::atan2(y_mag, x_mag);
+        this->firstMagMeasurement = false;
+    }
+
+    Eigen::VectorXd innovation;
     // //change from system to body system
     // Eigen::Vector3d velocityBodyAngular(xAngularVel, yAngularVel, zAngularVel);
     // // velocityAngular has to be changed to correct rotation(world velocityAngular)
     // Eigen::Vector3d velocityLocalAngular = this->getRotationVectorWithoutYaw() * velocityBodyAngular;
 
     // Compute yaw from magnetometer
-    double yaw_measured = std::atan2(y_mag, x_mag);
+    // double yaw_measured = std::atan2(y_mag, x_mag) - this->firstYawFromMag;
+
+    // if (yaw_measured > M_PI) yaw_measured -= 2*M_PI;
+    // if (yaw_measured < -M_PI) yaw_measured += 2*M_PI;
+    double yaw_measured = generalHelpfulTools::angleDiff(std::atan2(-y_mag, x_mag), this->firstYawFromMag);
 
     Eigen::VectorXd z = Eigen::VectorXd::Zero(12);
     z(8) = yaw_measured;
@@ -147,7 +156,9 @@ void ekfClassDVL::updateMagnetometer(double x_mag, double y_mag, double z_mag, r
     // if (roll < 0 && currentStateBeforeUpdate[6] > 0) {
     //     currentStateBeforeUpdate[6] = currentStateBeforeUpdate[6] - M_PI * 2;
     // }
-    innovation = this->innovationStateDiff(z, H, currentStateBeforeUpdate);//also called y
+    // innovation = this->innovationStateDiff(z, H, currentStateBeforeUpdate);//also called y
+
+    innovation = z - H * this->stateOfEKF.getStatexyzvxvyvzrpyrvelpvelyvel();
     Eigen::MatrixXd S = H * this->stateOfEKF.covariance * H.transpose() + this->measurementMagnetometer;
     Eigen::MatrixXd K = this->stateOfEKF.covariance * H.transpose() * S.inverse();
     Eigen::VectorXd newState = currentStateBeforeUpdate + K * innovation;
