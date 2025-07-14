@@ -259,7 +259,7 @@ private:
                                     rclcpp::Time(msg->header.stamp).seconds(),
                                     INTENSITY_SAVED);
 
-
+        // the uncertainty in the edge's relative transform
         Eigen::Matrix3d covarianceMatrix = Eigen::Matrix3d::Zero();
         covarianceMatrix(0, 0) = this->measurement_noise_ekf_xy;
         covarianceMatrix(1, 1) = this->measurement_noise_ekf_xy;
@@ -298,6 +298,7 @@ private:
             // go back in time 5 nodes and build a voxel
             // I do not like this
             // @TODO about the -5
+            // @TODO is there a better way to do local closure?
             slamToolsRos::calculateStartAndEndIndexForVoxelCreation(
                     this->graphSaved->getVertexList()->back().getKey() - 5, indexStart1, indexEnd1, this->graphSaved);
             indexStart2 = indexEnd1;
@@ -391,7 +392,7 @@ private:
                                     indexStart1,
                                     transformationEstimationRobot1_2.block<3, 1>(0, 3), qTMP,
                                     covarianceEstimation,
-                                    LOOP_CLOSURE);//@TODO still not sure about size
+                                    LOOP_CLOSURE_LOCAL);//@TODO still not sure about size
 
             } else {
                 std::cout << "we just skipped that registration because its to far away to be true" << std::endl;
@@ -405,8 +406,9 @@ private:
                                                      this->registration_size_of_scan,
                                                      true, 250, 500,
                                                      this->registration_threshold_translation, this->maximum_loopclosure_distance);
-            
-            std::cout << "Found a global loop closure" << std::endl;
+            if (foundGlobalLoopClosure == true) {
+                std::cout << "Found a global loop closure" << std::endl;
+            }
 
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
             double timeToCalculate = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();

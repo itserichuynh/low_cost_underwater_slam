@@ -44,7 +44,7 @@ def generate_launch_description():
     namespace='',
     executable='rviz2',
     name='rviz2',
-    arguments=['-d' + os.path.join(get_package_share_directory('low_cost_underwater_slam'), 'config', 'slamView.rviz')])
+    arguments=['-d' + os.path.join(get_package_share_directory('low_cost_underwater_slam'), 'config', 'newSLAMView.rviz')])
     ld.add_action(rviz_node)
 
     return ld

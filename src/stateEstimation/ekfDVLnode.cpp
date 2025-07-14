@@ -103,7 +103,7 @@ private:
 
         // Rotate 90 CCW
         // @TODO Do I need this at all or is it already handled in mavros?
-        // Well looks like mavros has this configured already from all the parameters! So we dont need to do this anymore
+        // Well looks like mavros has it in NED already! So we dont need to do this anymore
         Eigen::Matrix3d transformationX180DegreeRotationMatrix;
         Eigen::AngleAxisd rotation_vector2(0.0 / 180.0 * 3.14159, Eigen::Vector3d(1, 0, 0));
 
@@ -152,7 +152,7 @@ private:
         tmpRot.z() = newMsg.orientation.z;
         tmpRot.w() = newMsg.orientation.w;
 
-        currentEkf.predictionImu(newMsg.linear_acceleration.x, newMsg.linear_acceleration.y,
+        currentEkf.predictionImuNoVelocity(newMsg.linear_acceleration.x, newMsg.linear_acceleration.y,
                                  newMsg.linear_acceleration.z,
                                  tmpRot, this->positionIMU,
                                  newMsg.header.stamp);
@@ -160,7 +160,7 @@ private:
         Eigen::Vector3d euler = generalHelpfulTools::getRollPitchYaw(tmpRot);// roll pitch yaw
 
 
-        currentEkf.updateIMU(euler.x(), euler.y(), newMsg.angular_velocity.x, newMsg.angular_velocity.y,
+        currentEkf.updateIMUNoVelocity(euler.x(), euler.y(), newMsg.angular_velocity.x, newMsg.angular_velocity.y,
                              newMsg.angular_velocity.z, tmpRot, newMsg.header.stamp);
         pose currentStateEkf = currentEkf.getState();
         geometry_msgs::msg::PoseWithCovarianceStamped poseMsg;

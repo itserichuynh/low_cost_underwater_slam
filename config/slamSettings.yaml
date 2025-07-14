@@ -5,19 +5,19 @@ ekfNode:
     zPositionDVL: 0.48
     yawRotationDVL: 2.35619449019
 
-    xPositionIMU: -0.05
-    yPositionIMU: 0.11
-    zPositionIMU: 0.4
+    xPositionIMU: 0.08 #-0.05
+    yPositionIMU: 0.031 #0.11
+    zPositionIMU: -0.06 #0.4
 
     zPositionDepthSensor: 0.0
 
 rosSlamTest:
   ros__parameters:
     registration_number_of_pixels_dimension: 256 # defines the accuracy and speed of the registration
-    registration_size_of_scan: 40.0 # size of the scans. Defined by the sonar(our case 20 m radius)
+    registration_size_of_scan: 15.0 #10.0 # size of the scans. Defined by the sonar(our case 20 m radius)
     registration_threshold_translation: 0.001 # registration threshold. Smaller detects more and smaller peaks(means less noise resistant)
     map_size: 512 #number of pixels in one dimension of the occupancy grid plotted
-    dimension_size_map: 45.0 # dimension of the map. In our case its 45 meters. That is enough.
+    dimension_size_map: 60.0 #30.0 # dimension of the map. In our case its 45 meters. That is enough.
     distance_ignored_around_robot: 1.0 # distance to be ignored around the robot/sonar. Each measurement has a lot of noise in the beginning.
     rotation_sonar_on_robot: 3.14159265359 # rotation of the sonar on top of the robot
     sonar_forward_looking_down: false # false if sonar is put on Top of the robot. True on the bottom(head is then looking down).

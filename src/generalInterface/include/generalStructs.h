@@ -11,6 +11,8 @@
 #define ONLY_SIMPLE_GRAPH 6
 #define INTENSITY_SAVED_AND_KEYFRAME 7
 #define LOOP_CLOSURE 8
+#define LOOP_CLOSURE_LOCAL 9
+#define LOOP_CLOSURE_GLOBAL 10
 
 struct intensityMeasurement {
     double time;

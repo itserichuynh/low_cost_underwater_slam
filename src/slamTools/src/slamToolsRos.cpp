@@ -126,11 +126,46 @@ void slamToolsRos::visualizeCurrentPoseGraph(graphSlamSaveStructure *graphSaved,
     for (int i = 0; i < graphSaved->getEdgeList()->size(); i++) {
 
         if (graphSaved->getEdgeList()->at(i).getTypeOfEdge() ==
-            LOOP_CLOSURE) {//if its a loop closure then create arrow from vertex a to vertex b
+            LOOP_CLOSURE_GLOBAL) {//if its a loop closure then create arrow from vertex a to vertex b
             visualization_msgs::msg::Marker currentMarker;
             currentMarker.header.frame_id = "map_ned";
             currentMarker.scale.x = 0.1;
             currentMarker.scale.y = 0.3;
+            currentMarker.scale.z = 0;
+            currentMarker.color.r = 1;
+            currentMarker.color.g = 0;
+            currentMarker.color.b = 0;
+            currentMarker.color.a = 0.8;
+            //currentMarker.lifetime.sec = 10;
+            geometry_msgs::msg::Point startPoint;
+            geometry_msgs::msg::Point endPoint;
+
+            startPoint.x = graphSaved->getVertexList()->at(
+                    graphSaved->getEdgeList()->at(i).getFromKey()).getPositionVertex()[0];
+            startPoint.y = graphSaved->getVertexList()->at(
+                    graphSaved->getEdgeList()->at(i).getFromKey()).getPositionVertex()[1];
+            startPoint.z = graphSaved->getVertexList()->at(
+                    graphSaved->getEdgeList()->at(i).getFromKey()).getPositionVertex()[2];
+
+            endPoint.x = graphSaved->getVertexList()->at(
+                    graphSaved->getEdgeList()->at(i).getToKey()).getPositionVertex()[0];
+            endPoint.y = graphSaved->getVertexList()->at(
+                    graphSaved->getEdgeList()->at(i).getToKey()).getPositionVertex()[1];
+            endPoint.z = graphSaved->getVertexList()->at(
+                    graphSaved->getEdgeList()->at(i).getToKey()).getPositionVertex()[2];
+            currentMarker.points.push_back(startPoint);
+            currentMarker.points.push_back(endPoint);
+            currentMarker.type = 0;
+            currentMarker.id = j;
+            j++;
+            markerArrowsArray.markers.push_back(currentMarker);
+        }
+        else if (graphSaved->getEdgeList()->at(i).getTypeOfEdge() ==
+            LOOP_CLOSURE_LOCAL) {//if its a loop closure then create arrow from vertex a to vertex b
+            visualization_msgs::msg::Marker currentMarker;
+            currentMarker.header.frame_id = "map_ned";
+            currentMarker.scale.x = 0.1;
+            currentMarker.scale.y = 0.1;
             currentMarker.scale.z = 0;
             currentMarker.color.r = 0;
             currentMarker.color.g = 0;
@@ -649,7 +684,7 @@ bool slamToolsRos::loopDetectionByClosestPath(graphSlamSaveStructure *graphSaved
 
         // add the loop closure edge
         graphSaved->addEdge(graphSaved->getVertexList()->back().getKey(), indexStart2, transformationEstimationRobot1_2.block<3, 1>(0, 3),
-                           currentRotDiff, covarianceEstimation, LOOP_CLOSURE);
+                           currentRotDiff, covarianceEstimation, LOOP_CLOSURE_GLOBAL);
         foundLoopClosure = true;
         loopclosureNumber++;
         if (loopclosureNumber > 1) { break; }// break if multiple loop closures are found(we decided on 1)
